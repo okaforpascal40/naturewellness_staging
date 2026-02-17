@@ -47,7 +47,7 @@ const Admin = () => {
   const { data: foods } = useQuery({
     queryKey: ["admin_foods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("foods").select("id, name, emoji").order("name");
+      const { data, error } = await supabase.from("foods").select("id, name").order("name");
       if (error) throw error;
       return data;
     },
@@ -69,7 +69,7 @@ const Admin = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("food_condition_links")
-        .select("*, foods(name, emoji), health_conditions(name)")
+        .select("*, foods(name), health_conditions(name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -163,7 +163,7 @@ const Admin = () => {
                   <SelectTrigger><SelectValue placeholder="Select food" /></SelectTrigger>
                   <SelectContent>
                     {foods?.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>{f.emoji} {f.name}</SelectItem>
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -280,7 +280,7 @@ const Admin = () => {
                 const cond = link.health_conditions as any;
                 return (
                   <TableRow key={link.id}>
-                    <TableCell className="font-medium">{food?.emoji} {food?.name}</TableCell>
+                    <TableCell className="font-medium">{food?.name}</TableCell>
                     <TableCell>{cond?.name}</TableCell>
                     <TableCell>
                       <Badge className={
