@@ -14,7 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      food_condition_links: {
+        Row: {
+          approved_for_public: boolean
+          condition_id: string
+          created_at: string
+          evidence_level: string
+          food_id: string
+          id: string
+          key_compounds: string[] | null
+          layer: string
+          mechanism: string | null
+          pubmed_refs: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          approved_for_public?: boolean
+          condition_id: string
+          created_at?: string
+          evidence_level?: string
+          food_id: string
+          id?: string
+          key_compounds?: string[] | null
+          layer?: string
+          mechanism?: string | null
+          pubmed_refs?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          approved_for_public?: boolean
+          condition_id?: string
+          created_at?: string
+          evidence_level?: string
+          food_id?: string
+          id?: string
+          key_compounds?: string[] | null
+          layer?: string
+          mechanism?: string | null
+          pubmed_refs?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_condition_links_condition_id_fkey"
+            columns: ["condition_id"]
+            isOneToOne: false
+            referencedRelation: "health_conditions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_condition_links_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foods: {
+        Row: {
+          category: string | null
+          compounds: Json | null
+          created_at: string
+          emoji: string | null
+          id: string
+          name: string
+          nutrients: Json | null
+          scientific_name: string | null
+          updated_at: string
+          warnings: string | null
+        }
+        Insert: {
+          category?: string | null
+          compounds?: Json | null
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          name: string
+          nutrients?: Json | null
+          scientific_name?: string | null
+          updated_at?: string
+          warnings?: string | null
+        }
+        Update: {
+          category?: string | null
+          compounds?: Json | null
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          name?: string
+          nutrients?: Json | null
+          scientific_name?: string | null
+          updated_at?: string
+          warnings?: string | null
+        }
+        Relationships: []
+      }
+      health_conditions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
