@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Leaf, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import Logo from "@/components/Logo";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -18,13 +19,8 @@ const Navbar = () => {
   return (
     <nav className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="bg-primary rounded-lg p-1.5">
-            <Leaf className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold text-secondary" style={{ fontFamily: "'Merriweather', serif" }}>
-            NatureWellness
-          </span>
+        <Link to="/" className="flex items-center">
+          <Logo className="w-[160px] md:w-[200px] h-auto" />
         </Link>
 
         {/* Desktop */}
