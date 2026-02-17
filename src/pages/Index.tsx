@@ -2,8 +2,6 @@ import { Link } from "react-router-dom";
 import { Leaf, FlaskConical, Shield, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import Logo from "@/components/Logo";
-
 const features = [
   {
     icon: FlaskConical,
@@ -28,8 +26,9 @@ const Index = () => {
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/5">
         <div className="container mx-auto px-4 py-24 md:py-32 text-center relative z-10">
-          <div className="flex justify-center mb-6">
-            <Logo className="w-[200px] md:w-[300px] h-auto" />
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-6 text-sm text-primary font-medium">
+            <Leaf className="h-4 w-4" />
+            Science-Backed Nutrition
           </div>
           <h1 className="text-4xl md:text-6xl font-bold text-secondary mb-4 leading-tight">
             Discover Nature's
