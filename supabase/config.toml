@@ -1,1 +1,7 @@
 project_id = "tutqxdkewixivuzmvcen"
+
+[functions.generate-mechanism]
+verify_jwt = false
+
+[functions.enrich-food]
+verify_jwt = false
