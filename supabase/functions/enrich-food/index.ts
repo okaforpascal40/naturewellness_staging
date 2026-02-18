@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { foodId, foodName } = await req.json();
+    const { foodId, foodName, searchTerm } = await req.json();
 
     if (!foodId || !foodName) {
       return new Response(JSON.stringify({ error: 'Missing foodId or foodName' }), {
@@ -21,12 +21,14 @@ serve(async (req) => {
       });
     }
 
+    const queryTerm = searchTerm || foodName;
+
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const prompt = `You are a nutrition database expert. For the food "${foodName}", provide nutritional data in this exact JSON format (values per 100g serving):
+    const prompt = `You are a nutrition database expert. For the food "${queryTerm}", provide nutritional data in this exact JSON format (values per 100g serving):
 {
   "calories": number,
   "protein_g": number,
