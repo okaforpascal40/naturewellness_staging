@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Lock, Plus, Trash2, Edit, Apple, Heart, FileText, Clock } from "lucide-react";
+import { Lock, Plus, Trash2, Apple, Heart, FileText, Clock, Loader2, Sparkles, FlaskConical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const ADMIN_PASSWORD = "naturewellness2024";
@@ -21,6 +21,7 @@ const Admin = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [enrichFoodId, setEnrichFoodId] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -34,6 +35,10 @@ const Admin = () => {
     layer: "health-safe",
     approved_for_public: false,
   });
+
+  // Loading states
+  const [generatingMechanism, setGeneratingMechanism] = useState(false);
+  const [enriching, setEnriching] = useState(false);
 
   const handleLogin = () => {
     if (password === ADMIN_PASSWORD) {
@@ -114,6 +119,62 @@ const Admin = () => {
     },
   });
 
+  const handleGenerateMechanism = async () => {
+    const foodName = foods?.find((f) => f.id === form.food_id)?.name;
+    const conditionName = conditions?.find((c) => c.id === form.condition_id)?.name;
+
+    if (!foodName || !conditionName) {
+      toast({ title: "Select food and condition first", variant: "destructive" });
+      return;
+    }
+
+    const firstCompound = form.key_compounds.split(",").map((s) => s.trim()).filter(Boolean)[0] || "";
+
+    setGeneratingMechanism(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-mechanism", {
+        body: { food: foodName, compound: firstCompound, condition: conditionName },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setForm((prev) => ({ ...prev, mechanism: data.mechanism }));
+      toast({ title: "Mechanism generated" });
+    } catch (err: any) {
+      console.error("Generate mechanism error:", err);
+      toast({ title: "Generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingMechanism(false);
+    }
+  };
+
+  const handleEnrichFood = async () => {
+    const food = foods?.find((f) => f.id === enrichFoodId);
+    if (!food) {
+      toast({ title: "Select a food first", variant: "destructive" });
+      return;
+    }
+
+    setEnriching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("enrich-food", {
+        body: { foodId: food.id, foodName: food.name },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: `Enriched ${food.name} with ${data.nutrientCount} nutrients` });
+      queryClient.invalidateQueries({ queryKey: ["admin_foods"] });
+    } catch (err: any) {
+      console.error("Enrich food error:", err);
+      toast({ title: "Enrichment failed", description: err.message, variant: "destructive" });
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   if (!authenticated) {
     return (
       <div className="container mx-auto px-4 py-20 flex justify-center">
@@ -191,12 +252,34 @@ const Admin = () => {
                 </Select>
               </div>
               <div>
-                <Label>Mechanism Summary</Label>
-                <Textarea value={form.mechanism} onChange={(e) => setForm({ ...form, mechanism: e.target.value })} placeholder="Describe mechanism..." />
-              </div>
-              <div>
                 <Label>Key Compounds (comma separated)</Label>
                 <Input value={form.key_compounds} onChange={(e) => setForm({ ...form, key_compounds: e.target.value })} placeholder="Curcumin, EGCG" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Mechanism Summary</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    disabled={generatingMechanism || !form.food_id || !form.condition_id}
+                    onClick={handleGenerateMechanism}
+                  >
+                    {generatingMechanism ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    {generatingMechanism ? "Generating..." : "Generate with AI"}
+                  </Button>
+                </div>
+                <Textarea
+                  value={form.mechanism}
+                  onChange={(e) => setForm({ ...form, mechanism: e.target.value })}
+                  placeholder="Describe mechanism..."
+                  disabled={generatingMechanism}
+                />
               </div>
               <div>
                 <Label>Layer</Label>
@@ -212,7 +295,12 @@ const Admin = () => {
                 <Switch checked={form.approved_for_public} onCheckedChange={(v) => setForm({ ...form, approved_for_public: v })} />
                 <Label>Approved for Public</Label>
               </div>
-              <Button className="w-full" onClick={() => insertMutation.mutate()} disabled={!form.food_id || !form.condition_id}>
+              <Button
+                className="w-full"
+                onClick={() => insertMutation.mutate()}
+                disabled={!form.food_id || !form.condition_id || insertMutation.isPending || generatingMechanism}
+              >
+                {insertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Save Recommendation
               </Button>
             </div>
@@ -259,6 +347,43 @@ const Admin = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Enrich Food Section */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FlaskConical className="h-5 w-5 text-primary" />
+            Enrich Food Database
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <Label>Select Food</Label>
+              <Select value={enrichFoodId} onValueChange={setEnrichFoodId}>
+                <SelectTrigger><SelectValue placeholder="Choose a food to enrich" /></SelectTrigger>
+                <SelectContent>
+                  {foods?.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleEnrichFood}
+              disabled={!enrichFoodId || enriching}
+              className="gap-1"
+            >
+              {enriching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FlaskConical className="h-4 w-4" />
+              )}
+              {enriching ? "Fetching..." : "🔬 Fetch USDA Nutrients"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Links table */}
       <Card>
