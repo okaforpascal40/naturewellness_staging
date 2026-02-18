@@ -59,9 +59,11 @@ const FoodDetails = () => {
   }
 
   const compounds = Array.isArray(food.compounds) ? food.compounds as string[] : [];
-  const nutrients = food.nutrients && typeof food.nutrients === "object" && !Array.isArray(food.nutrients)
-    ? food.nutrients as Record<string, string>
+  const nutrientsRaw = food.nutrients && typeof food.nutrients === "object" && !Array.isArray(food.nutrients)
+    ? (typeof food.nutrients === "string" ? JSON.parse(food.nutrients) : food.nutrients) as { usdaId?: string; nutrients?: { name: string; amount: number; unit: string }[] }
     : null;
+  const nutrientList = nutrientsRaw?.nutrients ?? [];
+  const usdaId = nutrientsRaw?.usdaId;
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-3xl">
@@ -141,12 +143,15 @@ const FoodDetails = () => {
         <TabsContent value="nutrients">
           <Card>
             <CardContent className="p-6">
-              {nutrients && Object.keys(nutrients).length > 0 ? (
+              {usdaId && (
+                <p className="text-sm text-muted-foreground mb-4">USDA Food ID: {usdaId}</p>
+              )}
+              {nutrientList.length > 0 ? (
                 <div className="space-y-2">
-                  {Object.entries(nutrients).map(([k, v]) => (
-                    <div key={k} className="flex justify-between border-b border-border/50 pb-2 text-sm">
-                      <span className="font-medium">{k}</span>
-                      <span className="text-muted-foreground">{String(v)}</span>
+                  {nutrientList.map((nutrient, index) => (
+                    <div key={index} className="flex justify-between p-3 bg-muted/50 rounded border border-border/50 text-sm">
+                      <span className="font-medium">{nutrient.name}</span>
+                      <span className="text-muted-foreground">{nutrient.amount} {nutrient.unit}</span>
                     </div>
                   ))}
                 </div>
