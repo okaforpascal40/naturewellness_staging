@@ -22,6 +22,7 @@ const Admin = () => {
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [enrichFoodId, setEnrichFoodId] = useState("");
+  const [enrichSearchTerm, setEnrichSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -158,14 +159,23 @@ const Admin = () => {
 
     setEnriching(true);
     try {
+      const searchTerm = enrichSearchTerm.trim() || food.name;
       const { data, error } = await supabase.functions.invoke("enrich-food", {
-        body: { foodId: food.id, foodName: food.name },
+        body: { foodId: food.id, foodName: food.name, searchTerm },
       });
+
+      console.log('Edge Function response:', data);
+      console.log('Error:', error);
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast({ title: `Enriched ${food.name} with ${data.nutrientCount} nutrients` });
+      if (data?.data?.nutrients && data.data.nutrients.length > 0) {
+        toast({ title: `Enriched ${food.name} with ${data.data.nutrients.length} nutrients` });
+      } else {
+        toast({ title: `No USDA data found for "${searchTerm}". Try a different name like "${food.name}, raw"`, variant: "destructive" });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["admin_foods"] });
     } catch (err: any) {
       console.error("Enrich food error:", err);
@@ -360,7 +370,11 @@ const Admin = () => {
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <Label>Select Food</Label>
-              <Select value={enrichFoodId} onValueChange={setEnrichFoodId}>
+              <Select value={enrichFoodId} onValueChange={(v) => {
+                setEnrichFoodId(v);
+                const name = foods?.find((f) => f.id === v)?.name || "";
+                setEnrichSearchTerm(name);
+              }}>
                 <SelectTrigger><SelectValue placeholder="Choose a food to enrich" /></SelectTrigger>
                 <SelectContent>
                   {foods?.map((f) => (
@@ -368,6 +382,14 @@ const Admin = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex-1">
+              <Label>USDA Search Term</Label>
+              <Input
+                value={enrichSearchTerm}
+                onChange={(e) => setEnrichSearchTerm(e.target.value)}
+                placeholder="e.g. Spinach, raw"
+              />
             </div>
             <Button
               onClick={handleEnrichFood}
