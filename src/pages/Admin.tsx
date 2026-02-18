@@ -223,11 +223,11 @@ const Admin = () => {
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> Add New Recommendation</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>New Recommendation</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
               <div>
                 <Label>Food</Label>
                 <Select value={form.food_id} onValueChange={(v) => setForm({ ...form, food_id: v })}>
@@ -305,6 +305,8 @@ const Admin = () => {
                 <Switch checked={form.approved_for_public} onCheckedChange={(v) => setForm({ ...form, approved_for_public: v })} />
                 <Label>Approved for Public</Label>
               </div>
+            </div>
+            <div className="pt-2 border-t">
               <Button
                 className="w-full"
                 onClick={() => insertMutation.mutate()}
