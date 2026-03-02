@@ -1,73 +1,63 @@
-# Welcome to your Lovable project
+# NatureWellness
 
-## Project info
+Science-backed food recommendations based on bioactive compounds and nutrients.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## About
 
-## How can I edit this code?
+NatureWellness provides evidence-based recommendations of fruits and vegetables for specific health conditions, powered by USDA data, OpenAI, and expert validation.
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- React + TypeScript + Vite
+- Supabase (Database + Edge Functions)
+- OpenAI API, USDA FoodData Central
+- Tailwind CSS + shadcn/ui
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## Getting Started
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Features
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Health condition selection
+- Food recommendations with evidence grading
+- AI-generated mechanism explanations
+- USDA nutrient data integration
+- Admin dashboard
 
-**Use GitHub Codespaces**
+## License
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+© 2026 SabiFlow Technologies Limited. All rights reserved.
+```
 
-## What technologies are used for this project?
+5. Scroll down → Click **"Commit changes"**
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### **Step 3: Deploy to Vercel**
 
-## How can I deploy this project?
+**Now deploy the cleaned-up repo:**
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+1. Go to **vercel.com**
+2. Click **"New Project"**
+3. Click **"Import Git Repository"**
+4. Select: **`naturewellness_staging`**
+5. **Framework:** Vite
+6. **Build Command:** `npm run build`
+7. **Output Directory:** `dist`
+8. **Add Environment Variables:**
+```
+   VITE_SUPABASE_URL=https://vxtqizfrajbzcbktxrge.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+9. Click **"Deploy"**
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+### **Step 4: Get Your URL**
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**After 2-3 minutes, you'll get:**
+```
+https://naturewellness-staging.vercel.app
