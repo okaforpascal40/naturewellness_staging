@@ -96,10 +96,8 @@ const MechanisticPathways = ({
         };
       });
     },
-    enabled: isAcademic && conditionIds.length > 0,
+    enabled: conditionIds.length > 0,
   });
-
-  if (!isAcademic) return null;
 
   if (isLoading) {
     return (
