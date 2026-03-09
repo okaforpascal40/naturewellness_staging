@@ -112,27 +112,36 @@ export type Database = {
       }
       health_conditions: {
         Row: {
+          automated_evidence_score: number | null
           category: string
           created_at: string
           description: string | null
           id: string
           name: string
+          public_display_status: boolean
+          source_database: string | null
           updated_at: string
         }
         Insert: {
+          automated_evidence_score?: number | null
           category?: string
           created_at?: string
           description?: string | null
           id?: string
           name: string
+          public_display_status?: boolean
+          source_database?: string | null
           updated_at?: string
         }
         Update: {
+          automated_evidence_score?: number | null
           category?: string
           created_at?: string
           description?: string | null
           id?: string
           name?: string
+          public_display_status?: boolean
+          source_database?: string | null
           updated_at?: string
         }
         Relationships: []
