@@ -36,10 +36,6 @@ const MechanisticPathways = ({
   conditionIds,
   conditionNames,
 }: MechanisticPathwaysProps) => {
-  const isAcademic =
-    typeof window !== "undefined" &&
-    localStorage.getItem("academicMode") === "true";
-
   const { data: pathwayData, isLoading } = useQuery({
     queryKey: ["mechanistic-pathways", conditionIds],
     queryFn: async () => {
@@ -100,10 +96,8 @@ const MechanisticPathways = ({
         };
       });
     },
-    enabled: isAcademic && conditionIds.length > 0,
+    enabled: conditionIds.length > 0,
   });
-
-  if (!isAcademic) return null;
 
   if (isLoading) {
     return (
