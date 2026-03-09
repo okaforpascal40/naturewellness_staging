@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MechanisticPathways from "@/components/MechanisticPathways";
 
 const FoodDetails = () => {
   const { id } = useParams<{ id: string }>();
