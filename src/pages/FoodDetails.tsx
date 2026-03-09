@@ -114,31 +114,14 @@ const FoodDetails = () => {
                 </div>
               )}
 
-              <div className="mt-6 p-6 bg-sky-50 dark:bg-sky-950/20 rounded-lg border border-sky-200 dark:border-sky-800/30">
-                <h3 className="text-xl font-semibold mb-4">Mechanistic Pathways</h3>
-
-                <div className="mb-4">
-                  <p className="text-sm font-medium mb-2">Associated Genes:</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full text-sm font-medium">APOE</span>
-                    <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full text-sm font-medium">APP</span>
-                    <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full text-sm font-medium">NOS3</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium mb-2">Biological Pathways:</p>
-                  <div className="space-y-2">
-                    <div className="p-3 bg-card rounded border border-sky-300 dark:border-sky-700">
-                      <p className="font-medium">Metabolism</p>
-                      <p className="text-sm text-muted-foreground">Lipid and energy metabolism pathways</p>
-                    </div>
-                    <div className="p-3 bg-card rounded border border-sky-300 dark:border-sky-700">
-                      <p className="font-medium">Programmed Cell Death</p>
-                      <p className="text-sm text-muted-foreground">Apoptosis and cellular regulation</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MechanisticPathways
+                foodName={food.name}
+                compounds={compounds}
+                conditionIds={links?.map((l) => l.condition_id) ?? []}
+                conditionNames={Object.fromEntries(
+                  (links ?? []).map((l) => [l.condition_id, (l.health_conditions as any)?.name ?? "Unknown"])
+                )}
+              />
 
               {links && links.length > 0 && (
                 <div>
