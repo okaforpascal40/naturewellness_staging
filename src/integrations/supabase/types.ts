@@ -110,6 +110,102 @@ export type Database = {
         }
         Relationships: []
       }
+      gene_disease_associations: {
+        Row: {
+          condition_id: string
+          created_at: string
+          gene_id: string
+          id: string
+        }
+        Insert: {
+          condition_id: string
+          created_at?: string
+          gene_id: string
+          id?: string
+        }
+        Update: {
+          condition_id?: string
+          created_at?: string
+          gene_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gene_disease_associations_condition_id_fkey"
+            columns: ["condition_id"]
+            isOneToOne: false
+            referencedRelation: "health_conditions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gene_disease_associations_gene_id_fkey"
+            columns: ["gene_id"]
+            isOneToOne: false
+            referencedRelation: "genes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gene_pathway_associations: {
+        Row: {
+          created_at: string
+          gene_id: string
+          id: string
+          pathway_id: string
+        }
+        Insert: {
+          created_at?: string
+          gene_id: string
+          id?: string
+          pathway_id: string
+        }
+        Update: {
+          created_at?: string
+          gene_id?: string
+          id?: string
+          pathway_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gene_pathway_associations_gene_id_fkey"
+            columns: ["gene_id"]
+            isOneToOne: false
+            referencedRelation: "genes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gene_pathway_associations_pathway_id_fkey"
+            columns: ["pathway_id"]
+            isOneToOne: false
+            referencedRelation: "pathways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      genes: {
+        Row: {
+          created_at: string
+          description: string | null
+          gene_name: string
+          gene_symbol: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          gene_name: string
+          gene_symbol: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          gene_name?: string
+          gene_symbol?: string
+          id?: string
+        }
+        Relationships: []
+      }
       health_conditions: {
         Row: {
           automated_evidence_score: number | null
@@ -143,6 +239,27 @@ export type Database = {
           public_display_status?: boolean
           source_database?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pathways: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          pathway_name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          pathway_name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          pathway_name?: string
         }
         Relationships: []
       }
