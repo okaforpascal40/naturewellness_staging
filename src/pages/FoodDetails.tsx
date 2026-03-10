@@ -116,14 +116,23 @@ const FoodDetails = () => {
                 </div>
               )}
 
-              <MechanisticPathways
-                foodName={food.name}
-                compounds={compounds}
-                conditionIds={links?.map((l) => l.condition_id) ?? []}
-                conditionNames={Object.fromEntries(
+              {(() => {
+                const linkConditionIds = links?.map((l) => l.condition_id) ?? [];
+                const allConditionIds = queryConditionId && !linkConditionIds.includes(queryConditionId)
+                  ? [queryConditionId, ...linkConditionIds]
+                  : linkConditionIds;
+                const conditionNames = Object.fromEntries(
                   (links ?? []).map((l) => [l.condition_id, (l.health_conditions as any)?.name ?? "Unknown"])
-                )}
-              />
+                );
+                return (
+                  <MechanisticPathways
+                    foodName={food.name}
+                    compounds={compounds}
+                    conditionIds={allConditionIds}
+                    conditionNames={conditionNames}
+                  />
+                );
+              })()}
 
               {links && links.length > 0 && (
                 <div>
