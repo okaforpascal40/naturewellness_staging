@@ -136,9 +136,12 @@ const FoodDetails = () => {
                 const allConditionIds = queryConditionId && !linkConditionIds.includes(queryConditionId)
                   ? [queryConditionId, ...linkConditionIds]
                   : linkConditionIds;
-                const conditionNames = Object.fromEntries(
+                const conditionNames: Record<string, string> = Object.fromEntries(
                   (links ?? []).map((l) => [l.condition_id, (l.health_conditions as any)?.name ?? "Unknown"])
                 );
+                if (queryConditionId && queryCondition) {
+                  conditionNames[queryConditionId] = queryCondition.name;
+                }
                 return (
                   <MechanisticPathways
                     foodName={food.name}
