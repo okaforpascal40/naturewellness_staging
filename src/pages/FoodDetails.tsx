@@ -11,6 +11,8 @@ import MechanisticPathways from "@/components/MechanisticPathways";
 const FoodDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryConditionId = searchParams.get("conditionId");
 
   const { data: food, isLoading: loadingFood } = useQuery({
     queryKey: ["food", id],
