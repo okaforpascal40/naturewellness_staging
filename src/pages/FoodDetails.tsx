@@ -42,6 +42,21 @@ const FoodDetails = () => {
     enabled: !!id,
   });
 
+  // Fetch condition name when navigated with conditionId query param
+  const { data: queryCondition } = useQuery({
+    queryKey: ["condition_name", queryConditionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("health_conditions")
+        .select("id, name")
+        .eq("id", queryConditionId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!queryConditionId,
+  });
+
   const isLoading = loadingFood || loadingLinks;
 
   if (isLoading) {
