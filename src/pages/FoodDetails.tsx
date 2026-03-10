@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -11,6 +11,8 @@ import MechanisticPathways from "@/components/MechanisticPathways";
 const FoodDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryConditionId = searchParams.get("conditionId");
 
   const { data: food, isLoading: loadingFood } = useQuery({
     queryKey: ["food", id],
@@ -38,6 +40,21 @@ const FoodDetails = () => {
       return data;
     },
     enabled: !!id,
+  });
+
+  // Fetch condition name when navigated with conditionId query param
+  const { data: queryCondition } = useQuery({
+    queryKey: ["condition_name", queryConditionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("health_conditions")
+        .select("id, name")
+        .eq("id", queryConditionId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!queryConditionId,
   });
 
   const isLoading = loadingFood || loadingLinks;
@@ -114,14 +131,26 @@ const FoodDetails = () => {
                 </div>
               )}
 
-              <MechanisticPathways
-                foodName={food.name}
-                compounds={compounds}
-                conditionIds={links?.map((l) => l.condition_id) ?? []}
-                conditionNames={Object.fromEntries(
+              {(() => {
+                const linkConditionIds = links?.map((l) => l.condition_id) ?? [];
+                const allConditionIds = queryConditionId && !linkConditionIds.includes(queryConditionId)
+                  ? [queryConditionId, ...linkConditionIds]
+                  : linkConditionIds;
+                const conditionNames: Record<string, string> = Object.fromEntries(
                   (links ?? []).map((l) => [l.condition_id, (l.health_conditions as any)?.name ?? "Unknown"])
-                )}
-              />
+                );
+                if (queryConditionId && queryCondition) {
+                  conditionNames[queryConditionId] = queryCondition.name;
+                }
+                return (
+                  <MechanisticPathways
+                    foodName={food.name}
+                    compounds={compounds}
+                    conditionIds={allConditionIds}
+                    conditionNames={conditionNames}
+                  />
+                );
+              })()}
 
               {links && links.length > 0 && (
                 <div>

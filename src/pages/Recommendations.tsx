@@ -160,7 +160,7 @@ const Recommendations = () => {
                         </Badge>
                       )}
 
-                      <Link to={`/foods/${food?.id}`} className="mt-auto">
+                      <Link to={`/foods/${food?.id}?conditionId=${link.condition_id}`} className="mt-auto">
                         <Button variant="outline" size="sm" className="w-full">
                           View Details
                         </Button>
