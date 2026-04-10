@@ -1,14 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Search, Loader2, AlertTriangle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { ArrowRight, Search } from "lucide-react";
+import { DISEASE_MAP } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const categoryColors: Record<string, string> = {
   Metabolic: "bg-blue-100 text-blue-800 border-blue-200",
@@ -18,72 +15,16 @@ const categoryColors: Record<string, string> = {
   Cellular: "bg-teal-100 text-teal-800 border-teal-200",
 };
 
-const categories = ["All", "Metabolic", "Cardiovascular", "Immune", "Neurological", "Cellular"];
-
-function getEvidenceBadge(score: number | null) {
-  if (score == null) return null;
-  if (score >= 80) return { label: `Strong Evidence (${score})`, className: "bg-green-100 text-green-800 border-green-300" };
-  if (score >= 60) return { label: `Moderate Evidence (${score})`, className: "bg-yellow-100 text-yellow-800 border-yellow-300" };
-  return { label: `Emerging Evidence (${score})`, className: "bg-orange-100 text-orange-800 border-orange-300" };
-}
-
-const ACADEMIC_KEY = "conditions-academic-mode";
+const categories = ["All", ...new Set(DISEASE_MAP.map((d) => d.category))];
 
 const Conditions = () => {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [academicMode, setAcademicMode] = useState(() => {
-    try { return localStorage.getItem(ACADEMIC_KEY) === "true"; } catch { return false; }
-  });
 
-  useEffect(() => {
-    try { localStorage.setItem(ACADEMIC_KEY, String(academicMode)); } catch {}
-  }, [academicMode]);
-
-  const { data: conditions, isLoading } = useQuery({
-    queryKey: ["health_conditions", academicMode],
-    queryFn: async () => {
-      let query = supabase.from("health_conditions").select("*");
-      if (!academicMode) {
-        query = query.eq("public_display_status", true);
-      }
-      query = academicMode
-        ? query.order("automated_evidence_score", { ascending: false })
-        : query.order("name");
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Stats: total count (all conditions)
-  const { data: totalCount } = useQuery({
-    queryKey: ["health_conditions_total"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("health_conditions")
-        .select("*", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
-  const { data: approvedCount } = useQuery({
-    queryKey: ["health_conditions_approved"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("health_conditions")
-        .select("*", { count: "exact", head: true })
-        .eq("public_display_status", true);
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
-  const filtered = conditions?.filter((c: any) => {
+  const filtered = DISEASE_MAP.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
+      c.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = activeCategory === "All" || c.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
@@ -95,39 +36,16 @@ const Conditions = () => {
           Select a Health Condition
         </h1>
         <p className="text-muted-foreground">
-          Choose a condition to discover science-backed food recommendations
+          Choose a condition to discover AI-powered food recommendations
         </p>
       </div>
 
-      {/* Stats bar */}
       <div className="max-w-3xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-5 py-3 text-sm text-muted-foreground">
         <span>
-          Showing <span className="font-semibold text-foreground">{filtered?.length ?? 0}</span> of{" "}
-          <span className="font-semibold text-foreground">{totalCount ?? 0}</span> conditions
-          {" | "}
-          <span className="font-semibold text-foreground">{approvedCount ?? 0}</span> approved for public
+          Showing <span className="font-semibold text-foreground">{filtered.length}</span> of{" "}
+          <span className="font-semibold text-foreground">{DISEASE_MAP.length}</span> conditions
         </span>
-
-        {/* Academic toggle */}
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <Switch checked={academicMode} onCheckedChange={setAcademicMode} />
-          <span className={`font-medium ${academicMode ? "text-amber-700" : "text-foreground"}`}>
-            {academicMode ? "Academic Mode" : "Public Mode"}
-          </span>
-        </label>
       </div>
-
-      {/* Academic warning banner */}
-      {academicMode && (
-        <div className="max-w-3xl mx-auto mb-6">
-          <Alert className="border-amber-400 bg-[#FEF3C7] text-amber-900">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <AlertDescription className="ml-2 text-sm font-medium leading-snug">
-              <span className="font-bold">Academic Mode Active:</span> Showing all conditions including those pending expert validation. This mode is for research and educational purposes only. Do not use for medical decisions.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
 
       {/* Search */}
       <div className="max-w-md mx-auto mb-6 relative">
@@ -154,60 +72,35 @@ const Conditions = () => {
         ))}
       </div>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      )}
-
       {/* Grid */}
-      {!isLoading && filtered && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {filtered.map((condition: any) => {
-            const evidence = academicMode ? getEvidenceBadge(condition.automated_evidence_score) : null;
-            return (
-              <Link key={condition.id} to={`/conditions/${condition.id}`}>
-                <Card className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-primary/10 h-full">
-                  <CardContent className="p-6 flex flex-col h-full">
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${categoryColors[condition.category] || "bg-muted text-muted-foreground"}`}
-                      >
-                        {condition.category}
-                      </Badge>
-                      {evidence && (
-                        <Badge variant="outline" className={`text-xs ${evidence.className}`}>
-                          {evidence.label}
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-bold text-secondary mb-2">
-                      {condition.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground flex-1 mb-3">
-                      {condition.description}
-                    </p>
-                    {academicMode && condition.source_database && (
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Source: <span className="font-medium">{condition.source_database}</span>
-                      </p>
-                    )}
-                    <div className="flex items-center text-primary text-sm font-medium">
-                      Explore recommendations
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        {filtered.map((condition) => (
+          <Link key={condition.id} to={`/conditions/${condition.id}`}>
+            <Card className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-primary/10 h-full">
+              <CardContent className="p-6 flex flex-col h-full">
+                <Badge
+                  variant="outline"
+                  className={`w-fit text-xs mb-3 ${categoryColors[condition.category] || "bg-muted text-muted-foreground"}`}
+                >
+                  {condition.category}
+                </Badge>
+                <h3 className="text-lg font-bold text-secondary mb-2">
+                  {condition.name}
+                </h3>
+                <p className="text-sm text-muted-foreground flex-1 mb-3">
+                  {condition.description}
+                </p>
+                <div className="flex items-center text-primary text-sm font-medium">
+                  Explore recommendations
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
 
-      {/* Empty */}
-      {!isLoading && filtered?.length === 0 && (
+      {filtered.length === 0 && (
         <div className="text-center py-20 text-muted-foreground">
           <p>No conditions found matching your search.</p>
         </div>
