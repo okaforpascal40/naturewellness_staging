@@ -7,7 +7,6 @@ import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Conditions from "./pages/Conditions";
 import Recommendations from "./pages/Recommendations";
-import FoodDetails from "./pages/FoodDetails";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -24,7 +23,6 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/conditions" element={<Conditions />} />
             <Route path="/conditions/:id" element={<Recommendations />} />
-            <Route path="/foods/:id" element={<FoodDetails />} />
             <Route path="/admin" element={<Admin />} />
           </Route>
           <Route path="*" element={<NotFound />} />
