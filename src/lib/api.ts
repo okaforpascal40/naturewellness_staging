@@ -1,5 +1,14 @@
 const API_BASE = "https://naturewellness-backend-production.up.railway.app";
 
+export interface Citation {
+  pmid?: string;
+  title?: string;
+  authors?: string;
+  journal?: string;
+  year?: number | string;
+  url?: string;
+}
+
 export interface EvidenceScore {
   food_name: string;
   compound_name: string;
@@ -8,6 +17,11 @@ export interface EvidenceScore {
   score: number;
   evidence_level: string;
   reasoning: string;
+  // Literature-based fields (optional — backend may or may not provide)
+  evidence_grade?: "A" | "B" | "C" | string;
+  interaction_type?: string;
+  publication_count?: number;
+  citations?: Citation[];
 }
 
 export interface AutomationRunResponse {
