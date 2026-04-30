@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Search } from "lucide-react";
-import { DISEASE_MAP } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Loader2, Search } from "lucide-react";
+import { DISEASE_MAP, searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
