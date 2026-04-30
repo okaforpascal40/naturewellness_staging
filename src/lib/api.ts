@@ -105,7 +105,7 @@ export async function searchOpenTargetsDiseases(
 
 export async function runAutomation(mondoId: string, maxGenes = 10): Promise<AutomationRunResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
+  const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/automation/run`, {
