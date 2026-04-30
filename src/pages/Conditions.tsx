@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Search } from "lucide-react";
-import { DISEASE_MAP } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Loader2, Search } from "lucide-react";
+import { DISEASE_MAP, searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,56 @@ const categories = ["All", ...new Set(DISEASE_MAP.map((d) => d.category))];
 const Conditions = () => {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const navigate = useNavigate();
+
+  const [otResults, setOtResults] = useState<OpenTargetsDisease[]>([]);
+  const [otLoading, setOtLoading] = useState(false);
+  const [otOpen, setOtOpen] = useState(false);
+  const [otError, setOtError] = useState<string | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setOtResults([]);
+      setOtLoading(false);
+      setOtError(null);
+      return;
+    }
+    const controller = new AbortController();
+    setOtLoading(true);
+    setOtError(null);
+    const t = setTimeout(async () => {
+      try {
+        const results = await searchOpenTargetsDiseases(q, controller.signal);
+        setOtResults(results);
+      } catch (e: any) {
+        if (e.name !== "AbortError") setOtError("Could not load suggestions.");
+      } finally {
+        setOtLoading(false);
+      }
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
+  }, [search]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOtOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const handleSelectDisease = (d: OpenTargetsDisease) => {
+    setOtOpen(false);
+    setSearch("");
+    navigate(`/conditions/${d.id}?name=${encodeURIComponent(d.name)}`);
+  };
 
   const filtered = DISEASE_MAP.filter((c) => {
     const matchesSearch =
@@ -36,26 +86,66 @@ const Conditions = () => {
           Select a Health Condition
         </h1>
         <p className="text-muted-foreground">
-          Choose a condition to discover AI-powered food recommendations
+          Search any disease or choose from featured conditions below
         </p>
       </div>
 
       <div className="max-w-3xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-5 py-3 text-sm text-muted-foreground">
         <span>
           Showing <span className="font-semibold text-foreground">{filtered.length}</span> of{" "}
-          <span className="font-semibold text-foreground">{DISEASE_MAP.length}</span> conditions
+          <span className="font-semibold text-foreground">{DISEASE_MAP.length}</span> featured conditions
         </span>
       </div>
 
-      {/* Search */}
-      <div className="max-w-md mx-auto mb-6 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Search with Open Targets autocomplete */}
+      <div ref={wrapperRef} className="max-w-md mx-auto mb-6 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
         <Input
-          placeholder="Search conditions..."
+          placeholder="Type any disease name (e.g. Lupus, Parkinson, Diabetes)..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setOtOpen(true);
+          }}
+          onFocus={() => setOtOpen(true)}
           className="pl-10"
         />
+        {otOpen && search.trim().length >= 2 && (
+          <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-md border border-border bg-popover shadow-lg overflow-hidden">
+            {otLoading && (
+              <div className="px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" /> Searching diseases…
+              </div>
+            )}
+            {!otLoading && otError && (
+              <div className="px-4 py-3 text-sm text-destructive">{otError}</div>
+            )}
+            {!otLoading && !otError && otResults.length === 0 && (
+              <div className="px-4 py-3 text-sm text-muted-foreground">
+                No diseases found.
+              </div>
+            )}
+            {!otLoading &&
+              !otError &&
+              otResults.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => handleSelectDisease(d)}
+                  className="w-full text-left px-4 py-2.5 hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 transition-colors"
+                >
+                  <div className="font-medium text-sm text-foreground capitalize">
+                    {d.name}
+                  </div>
+                  {d.description && (
+                    <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                      {d.description}
+                    </div>
+                  )}
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Category filters */}

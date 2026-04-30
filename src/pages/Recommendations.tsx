@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -168,9 +168,21 @@ const CitationsBlock = ({ citations }: { citations: Citation[] }) => {
 
 const Recommendations = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const disease = DISEASE_MAP.find((d) => d.id === id);
+  const mapped = DISEASE_MAP.find((d) => d.id === id);
+  // Support arbitrary diseases from Open Targets autocomplete:
+  // route /conditions/:id where :id is the EFO/MONDO id (e.g. "EFO_0000249")
+  // and an optional ?name=... query param provides the display name.
+  const otName = searchParams.get("name") || undefined;
+  const isOpenTargetsId = !mapped && !!id && /^[A-Za-z]+_[0-9]+$/.test(id);
+
+  const disease = mapped
+    ? mapped
+    : isOpenTargetsId && id
+      ? { name: otName || id.replace(/_/g, ":"), mondoId: id }
+      : undefined;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["automation-run", disease?.mondoId],

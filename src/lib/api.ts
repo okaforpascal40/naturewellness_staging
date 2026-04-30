@@ -67,6 +67,46 @@ export const DISEASE_MAP: { id: string; name: string; mondoId: string; category:
   },
 ];
 
+export interface OpenTargetsDisease {
+  id: string; // e.g. "EFO_0000249", "MONDO_0004975"
+  name: string;
+  description?: string;
+}
+
+const OT_GRAPHQL = "https://api.platform.opentargets.org/api/v4/graphql";
+
+export async function searchOpenTargetsDiseases(
+  query: string,
+  signal?: AbortSignal,
+): Promise<OpenTargetsDisease[]> {
+  if (!query.trim()) return [];
+  const gql = `
+    query SearchDisease($q: String!) {
+      search(queryString: $q, entityNames: ["disease"], page: { index: 0, size: 8 }) {
+        hits {
+          id
+          name
+          entity
+          description
+        }
+      }
+    }
+  `;
+  const res = await fetch(OT_GRAPHQL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: gql, variables: { q: query } }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`Open Targets search failed: ${res.status}`);
+  const json = await res.json();
+  const hits = json?.data?.search?.hits ?? [];
+  return hits
+    .filter((h: any) => h.entity === "disease")
+    .slice(0, 5)
+    .map((h: any) => ({ id: h.id, name: h.name, description: h.description }));
+}
+
 export async function runAutomation(mondoId: string, maxGenes = 10): Promise<AutomationRunResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
