@@ -9,30 +9,26 @@ export interface Citation {
   url?: string;
 }
 
-export interface EvidenceScore {
-  food_name: string;
-  compound_name: string;
-  gene_symbol: string;
+export interface Recommendation {
+  fruit_vegetable: string;
+  phytochemical: string;
+  gene_target: string;
   pathway_name: string;
-  score: number;
-  evidence_level: string;
-  reasoning: string;
-  // Literature-based fields (optional — backend may or may not provide)
-  evidence_grade?: "A" | "B" | "C" | string;
-  interaction_type?: string;
-  publication_count?: number;
-  citations?: Citation[];
+  evidence_grade: "A" | "B" | "C" | string;
+  publication_count: number;
+  interaction_type: string;
+  sample_citations?: Citation[];
 }
 
 export interface AutomationRunResponse {
-  run_id: string;
-  disease_id: string;
-  disease_name: string;
+  run_id?: string;
+  disease_id?: string;
+  disease_name?: string;
   genes_found: number;
   pathways_found: number;
   compounds_found: number;
   foods_found: number;
-  evidence_scores: EvidenceScore[];
+  recommendations: Recommendation[];
   status: string;
 }
 
