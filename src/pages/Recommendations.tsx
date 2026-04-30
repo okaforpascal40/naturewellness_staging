@@ -34,12 +34,16 @@ const gradeStyles: Record<string, { label: string; className: string }> = {
     label: "Grade C · Emerging Evidence",
     className: "bg-orange-100 text-orange-800 border-orange-300",
   },
+  None: {
+    label: "Insufficient Evidence",
+    className: "bg-gray-100 text-gray-700 border-gray-300",
+  },
 };
 
-function normalizeGrade(g: string | undefined): "A" | "B" | "C" {
+function normalizeGrade(g: string | undefined): "A" | "B" | "C" | "None" {
   const up = (g || "").toUpperCase();
   if (up === "A" || up === "B" || up === "C") return up;
-  return "C";
+  return "None";
 }
 
 const CitationsBlock = ({ citations }: { citations: Citation[] }) => {
