@@ -13,7 +13,7 @@ export interface Recommendation {
   fruit_vegetable: string;
   phytochemical: string;
   gene_target: string;
-  pathway_name: string;
+  pathway: string;
   evidence_grade: "A" | "B" | "C" | string;
   publication_count: number;
   interaction_type: string;
@@ -120,7 +120,9 @@ export async function runAutomation(mondoId: string, maxGenes = 10): Promise<Aut
       throw new Error(`API error ${res.status}: ${text}`);
     }
 
-    return await res.json();
+    const json = await res.json();
+    console.log("[runAutomation] API response:", json);
+    return json;
   } catch (err: any) {
     if (err.name === "AbortError") {
       throw new Error("Request timed out. The analysis is taking longer than expected. Please try again.");

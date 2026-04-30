@@ -292,10 +292,10 @@ const Recommendations = () => {
                                     {rec.gene_target}
                                   </Badge>
                                 )}
-                                {rec.pathway_name && (
+                                {rec.pathway && (
                                   <Badge variant="outline" className="text-[10px] gap-1">
                                     <Route className="h-2.5 w-2.5" />
-                                    {rec.pathway_name}
+                                    {rec.pathway}
                                   </Badge>
                                 )}
                                 {rec.interaction_type && (
