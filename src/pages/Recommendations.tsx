@@ -260,12 +260,14 @@ const Recommendations = () => {
                                 {rec.fruit_vegetable}
                               </h3>
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={`shrink-0 text-xs font-bold ${gs.className}`}
-                            >
-                              {gs.label}
-                            </Badge>
+                            {gs && (
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 text-xs font-bold ${gs.className}`}
+                              >
+                                {gs.label}
+                              </Badge>
+                            )}
                           </div>
 
                           {rec.phytochemical && (
