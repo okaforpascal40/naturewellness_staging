@@ -1,117 +1,63 @@
+import { useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import {
-  ArrowLeft,
-  Loader2,
-  Dna,
-  Route,
-  FlaskConical,
+  Activity,
   AlertTriangle,
+  ArrowLeft,
   BookOpen,
-  ChevronDown,
-  ChevronUp,
+  Bookmark,
+  Dna,
+  Download,
   ExternalLink,
+  FlaskConical,
+  Heart,
+  Loader2,
+  Map as MapIcon,
+  Network,
+  Route as RouteIcon,
+  Share2,
 } from "lucide-react";
-import { DISEASE_MAP, runAutomation, type Recommendation, type Citation } from "@/lib/api";
+import { toast } from "sonner";
+import { DISEASE_MAP, runAutomation, type Citation, type Recommendation } from "@/lib/api";
+import {
+  GRADE_META,
+  gradeDistribution,
+  gradeMeta,
+  getFoodVisual,
+  mechanismText,
+  servingInfo,
+  topBenefitAreas,
+  topFoods,
+  uniqueNonEmpty,
+} from "@/lib/food-display";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MedicalDisclaimer from "@/components/MedicalDisclaimer";
 
-const gradeStyles: Record<string, { label: string; className: string }> = {
-  A: {
-    label: "Grade A · Strong Evidence",
-    className: "bg-green-100 text-green-800 border-green-300",
-  },
-  B: {
-    label: "Grade B · Moderate Evidence",
-    className: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  },
-  C: {
-    label: "Grade C · Emerging Evidence",
-    className: "bg-orange-100 text-orange-800 border-orange-300",
-  },
-  None: {
-    label: "Insufficient Evidence",
-    className: "bg-gray-100 text-gray-700 border-gray-300",
-  },
-};
+type Mode = "academic" | "private";
 
-function normalizeGrade(g: string | undefined): "A" | "B" | "C" | "None" {
-  const up = (g || "").toUpperCase();
-  if (up === "A" || up === "B" || up === "C") return up;
-  return "None";
-}
+const TABS = [
+  { value: "summary", label: "Summary" },
+  { value: "foods", label: "Foods & Nutrients" },
+  { value: "genes", label: "Genes & Pathways" },
+  { value: "mechanisms", label: "Mechanisms" },
+  { value: "serving", label: "Serving & Preparation" },
+  { value: "references", label: "References" },
+];
 
-const CitationsBlock = ({ citations }: { citations: Citation[] }) => {
-  const [open, setOpen] = useState(false);
-  if (!citations.length) return null;
-  const preview = citations.slice(0, 2);
-  const rest = citations.slice(2);
-
-  const renderCitation = (c: Citation, i: number) => {
-    const url = c.url || (c.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${c.pmid}/` : undefined);
-    return (
-      <li key={i} className="text-xs text-muted-foreground leading-snug">
-        {c.title && <span className="text-foreground font-medium">{c.title}</span>}
-        {c.authors && <span> — {c.authors}</span>}
-        {(c.journal || c.year) && (
-          <span className="italic">
-            {" "}
-            {c.journal}
-            {c.year ? `, ${c.year}` : ""}
-          </span>
-        )}
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline"
-          >
-            {c.pmid ? `PMID:${c.pmid}` : "View"}
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        )}
-      </li>
-    );
-  };
-
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} className="border-t pt-3 mt-3">
-      <ul className="space-y-1.5 mb-2">{preview.map(renderCitation)}</ul>
-      {rest.length > 0 && (
-        <>
-          <CollapsibleContent>
-            <ul className="space-y-1.5 mb-2">{rest.map((c, i) => renderCitation(c, i + preview.length))}</ul>
-          </CollapsibleContent>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
-              {open ? (
-                <>
-                  Hide citations <ChevronUp className="h-3 w-3" />
-                </>
-              ) : (
-                <>
-                  Show {rest.length} more citation{rest.length === 1 ? "" : "s"}{" "}
-                  <ChevronDown className="h-3 w-3" />
-                </>
-              )}
-            </Button>
-          </CollapsibleTrigger>
-        </>
-      )}
-    </Collapsible>
-  );
-};
+const comingSoon = (label: string) =>
+  toast(`${label} is coming soon`, { description: "This feature isn't available yet." });
 
 const Recommendations = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const [mode, setMode] = useState<Mode>("academic");
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   const mapped = DISEASE_MAP.find((d) => d.id === id);
   const otName = searchParams.get("name") || undefined;
@@ -131,204 +77,585 @@ const Recommendations = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const recommendations: Recommendation[] = data?.recommendations ?? [];
-  const totalPublications = recommendations.reduce(
-    (sum, r) => sum + (r.publication_count || 0),
-    0,
+  const recommendations: Recommendation[] = useMemo(
+    () => data?.recommendations ?? [],
+    [data],
   );
 
+  const foods = useMemo(() => topFoods(recommendations), [recommendations]);
+  const genes = useMemo(
+    () => uniqueNonEmpty(recommendations.map((r) => r.gene_target)),
+    [recommendations],
+  );
+  const pathways = useMemo(
+    () => uniqueNonEmpty(recommendations.map((r) => r.pathway)),
+    [recommendations],
+  );
+  const benefits = useMemo(() => topBenefitAreas(pathways), [pathways]);
+  const distribution = useMemo(() => gradeDistribution(recommendations), [recommendations]);
+
+  const mechanisms = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { text: string; sub: string }[] = [];
+    for (const r of recommendations) {
+      const text = mechanismText(r.interaction_type, r.gene_target);
+      if (seen.has(text)) continue;
+      seen.add(text);
+      out.push({ text, sub: [r.phytochemical, r.pathway].filter(Boolean).join(" · ") });
+    }
+    return out;
+  }, [recommendations]);
+
+  const citations = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Citation[] = [];
+    for (const r of recommendations) {
+      for (const c of r.sample_citations ?? []) {
+        const key = (c.pmid || c.title || c.url || "").toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(c);
+      }
+    }
+    return out;
+  }, [recommendations]);
+
+  const totalPublications = recommendations.reduce((sum, r) => sum + (r.publication_count || 0), 0);
+
+  const toggleFavorite = (key: string) =>
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const stats = [
+    { label: "Genes", value: data?.genes_found ?? genes.length, icon: Dna },
+    { label: "Pathways", value: data?.pathways_found ?? pathways.length, icon: RouteIcon },
+    { label: "Compounds", value: data?.compounds_found ?? 0, icon: FlaskConical },
+    { label: "Foods", value: data?.foods_found ?? foods.length, icon: Activity },
+  ];
+
   return (
-    <div className="container mx-auto px-4 py-10">
-      <Button variant="ghost" className="mb-6 gap-2" onClick={() => navigate("/conditions")}>
-        <ArrowLeft className="h-4 w-4" /> Back to Conditions
-      </Button>
-
-      {!disease && (
-        <div className="text-center py-20 text-muted-foreground">
-          <p>Condition not found.</p>
-        </div>
-      )}
-
-      {disease && (
-        <>
-          <div className="mb-6">
-            <h1
-              className="text-3xl md:text-4xl font-bold text-secondary mb-2"
-              style={{ fontFamily: "'Merriweather', serif" }}
+    <div className="min-h-[calc(100vh-8rem)] bg-background pb-16">
+      <div className="container mx-auto px-4 py-6">
+        {/* ============================ TOP BAR ============================ */}
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mt-0.5 h-9 w-9 shrink-0 rounded-full"
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
             >
-              {disease.name}
-            </h1>
-            <p className="text-muted-foreground">
-              Literature-based food recommendations from gene–pathway analysis
-            </p>
-          </div>
-
-          <div className="mb-8 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-2 text-sm text-amber-900">
-            <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
-            <p>
-              <strong>Academic Mode</strong> — Literature-based evidence from CTD &amp; PubMed.
-              Not medical advice.
-            </p>
-          </div>
-
-          {isLoading && (
-            <div className="max-w-lg mx-auto text-center py-16 space-y-6">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-              <div className="space-y-2">
-                <p className="text-lg font-semibold text-secondary">
-                  Searching CTD and PubMed databases…
-                </p>
-                <p className="text-sm text-muted-foreground">This may take 30–60 seconds</p>
-              </div>
-              <Progress
-                value={undefined}
-                className="h-2 w-full [&>div]:animate-[indeterminate_1.5s_ease-in-out_infinite]"
-              />
-              <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Dna className="h-3 w-3" /> Analyzing genes
-                </span>
-                <span className="flex items-center gap-1">
-                  <Route className="h-3 w-3" /> Mapping pathways
-                </span>
-                <span className="flex items-center gap-1">
-                  <FlaskConical className="h-3 w-3" /> Scoring compounds
-                </span>
-                <span className="flex items-center gap-1">
-                  <BookOpen className="h-3 w-3" /> Reviewing literature
-                </span>
-              </div>
-            </div>
-          )}
-
-          {isError && (
-            <div className="max-w-lg mx-auto text-center py-16 space-y-4">
-              <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
-              <p className="text-lg font-semibold text-secondary">Something went wrong</p>
-              <p className="text-sm text-muted-foreground">
-                {(error as Error)?.message || "An unexpected error occurred."}
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-bold capitalize text-secondary sm:text-3xl">
+                {disease?.name ?? "Condition"}
+              </h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Evidence Graded
+                <span className="mx-1.5 text-border">|</span>
+                {mode === "academic" ? "Academic Mode" : "Private Mode"}
               </p>
-              <Button onClick={() => refetch()}>Try Again</Button>
             </div>
-          )}
+          </div>
 
-          {data && !isLoading && (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                {[
-                  { label: "Genes Found", value: data.genes_found ?? 0 },
-                  { label: "Pathways", value: data.pathways_found ?? 0 },
-                  { label: "Compounds", value: data.compounds_found ?? 0 },
-                  { label: "Foods", value: data.foods_found ?? recommendations.length },
-                ].map((s) => (
-                  <Card key={s.label} className="border-primary/10">
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-primary">{s.value}</p>
-                      <p className="text-xs text-muted-foreground">{s.label}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+          <div className="flex flex-wrap items-center gap-3 pl-12 lg:pl-0">
+            {/* Action icons */}
+            <div className="flex items-center gap-1">
+              {[
+                { icon: Bookmark, label: "Save" },
+                { icon: Share2, label: "Share" },
+                { icon: Download, label: "Download" },
+              ].map((a) => (
+                <Button
+                  key={a.label}
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full border-border/70"
+                  onClick={() => comingSoon(a.label)}
+                  aria-label={a.label}
+                  title={a.label}
+                >
+                  <a.icon className="h-4 w-4" />
+                </Button>
+              ))}
+            </div>
+
+            {/* Mode toggle */}
+            <div className="inline-flex rounded-full border border-border bg-card p-0.5">
+              {(["academic", "private"] as Mode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                    mode === m
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m === "academic" ? "Academic Mode" : "Private Mode"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {!disease && (
+          <div className="py-20 text-center text-muted-foreground">
+            <p>Condition not found.</p>
+            <Button className="mt-4" onClick={() => navigate("/")}>
+              Back to Search
+            </Button>
+          </div>
+        )}
+
+        {/* ============================ LOADING ============================ */}
+        {disease && isLoading && (
+          <div className="mx-auto max-w-lg space-y-6 py-16 text-center">
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-secondary">Searching CTD and PubMed databases…</p>
+              <p className="text-sm text-muted-foreground">This may take 30–60 seconds</p>
+            </div>
+            <Progress
+              value={undefined}
+              className="h-2 w-full [&>div]:animate-[indeterminate_1.5s_ease-in-out_infinite]"
+            />
+            <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Dna className="h-3 w-3" /> Analyzing genes
+              </span>
+              <span className="flex items-center gap-1">
+                <RouteIcon className="h-3 w-3" /> Mapping pathways
+              </span>
+              <span className="flex items-center gap-1">
+                <FlaskConical className="h-3 w-3" /> Scoring compounds
+              </span>
+              <span className="flex items-center gap-1">
+                <BookOpen className="h-3 w-3" /> Reviewing literature
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ============================ ERROR ============================ */}
+        {disease && isError && (
+          <div className="mx-auto max-w-lg space-y-4 py-16 text-center">
+            <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+            <p className="text-lg font-semibold text-secondary">Something went wrong</p>
+            <p className="text-sm text-muted-foreground">
+              {(error as Error)?.message || "An unexpected error occurred."}
+            </p>
+            <Button onClick={() => refetch()}>Try Again</Button>
+          </div>
+        )}
+
+        {/* ============================ CONTENT ============================ */}
+        {disease && data && !isLoading && (
+          <>
+            {/* Compact stats */}
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {stats.map((s) => (
+                <div
+                  key={s.label}
+                  className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 shadow-sm"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-primary">
+                    <s.icon className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-lg font-bold leading-none text-foreground">{s.value}</span>
+                    <span className="text-xs text-muted-foreground">{s.label}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {recommendations.length === 0 ? (
+              <div className="py-20 text-center text-muted-foreground">
+                <p>No food recommendations found for this condition yet.</p>
               </div>
+            ) : (
+              <Tabs defaultValue="summary" className="w-full">
+                <TabsList className="mb-6 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-2xl bg-muted/70 p-1 no-scrollbar">
+                  {TABS.map((t) => (
+                    <TabsTrigger
+                      key={t.value}
+                      value={t.value}
+                      className="shrink-0 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                    >
+                      {t.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              {totalPublications > 0 && (
-                <p className="text-sm text-muted-foreground mb-6 flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Based on <span className="font-semibold text-foreground">{totalPublications}</span>{" "}
-                  publication{totalPublications === 1 ? "" : "s"}
-                </p>
-              )}
+                {/* -------------------- SUMMARY -------------------- */}
+                <TabsContent value="summary" className="animate-fade-in">
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    <div className="space-y-8 lg:col-span-2">
+                      <p className="text-base leading-relaxed text-foreground/90">
+                        Plant foods and their nutrients &amp; phytochemicals may support{" "}
+                        <span className="font-semibold capitalize text-secondary">{disease.name}</span>{" "}
+                        management through multiple genes and pathways.
+                      </p>
 
-              {recommendations.length === 0 ? (
-                <div className="text-center py-20 text-muted-foreground">
-                  <p>No food recommendations found for this condition yet.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                  {recommendations.map((rec, idx) => {
-                    const grade = normalizeGrade(rec.evidence_grade);
-                    const gs = gradeStyles[grade];
-                    return (
-                      <Card
-                        key={`${rec.fruit_vegetable}-${idx}`}
-                        className="border-primary/10 hover:shadow-lg transition-shadow h-full"
-                      >
-                        <CardContent className="p-6 flex flex-col h-full">
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-2xl">🍎</span>
-                              <h3 className="font-bold text-xl text-secondary truncate">
-                                {rec.fruit_vegetable}
-                              </h3>
-                            </div>
-                            {gs && (
-                              <Badge
-                                variant="outline"
-                                className={`shrink-0 text-xs font-bold ${gs.className}`}
+                      {/* Top foods */}
+                      <div>
+                        <h3 className="mb-3 text-lg font-bold text-secondary">
+                          Top Recommended Fruits &amp; Vegetables
+                        </h3>
+                        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 no-scrollbar">
+                          {foods.slice(0, 12).map((f) => {
+                            const v = getFoodVisual(f.name);
+                            const gm = GRADE_META[f.grade];
+                            return (
+                              <div
+                                key={f.name}
+                                className="w-40 shrink-0 rounded-2xl border border-border/70 bg-card p-4 text-center shadow-sm"
                               >
-                                {gs.label}
-                              </Badge>
-                            )}
-                          </div>
-
-                          {rec.phytochemical && (
-                            <p className="text-sm text-muted-foreground mb-3">
-                              Phytochemical:{" "}
-                              <span className="font-medium text-foreground">
-                                {rec.phytochemical}
-                              </span>
-                            </p>
-                          )}
-
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mb-4">
-                            {rec.publication_count > 0 && (
-                              <span className="flex items-center gap-1">
-                                <BookOpen className="h-3 w-3" />
-                                {rec.publication_count} publication
-                                {rec.publication_count === 1 ? "" : "s"}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="space-y-2 flex-1">
-                            <div className="text-xs bg-muted/50 rounded p-2.5 space-y-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {rec.gene_target && (
-                                  <Badge variant="secondary" className="text-[10px] gap-1">
-                                    <Dna className="h-2.5 w-2.5" />
-                                    {rec.gene_target}
-                                  </Badge>
-                                )}
-                                {rec.pathway && (
-                                  <Badge variant="outline" className="text-[10px] gap-1">
-                                    <Route className="h-2.5 w-2.5" />
-                                    {rec.pathway}
-                                  </Badge>
-                                )}
-                                {rec.interaction_type && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] bg-primary/5 border-primary/20"
-                                  >
-                                    {rec.interaction_type}
-                                  </Badge>
-                                )}
+                                <div
+                                  className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl ${v.ring}`}
+                                >
+                                  {v.emoji}
+                                </div>
+                                <h4 className="mt-3 truncate text-sm font-semibold capitalize text-foreground">
+                                  {f.name}
+                                </h4>
+                                <p className="truncate text-xs italic text-muted-foreground">
+                                  {v.scientificName || f.phytochemical || " "}
+                                </p>
+                                <span
+                                  className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${gm.badgeClass}`}
+                                >
+                                  {gm.cardLabel}
+                                </span>
                               </div>
-                            </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Benefit areas */}
+                      {benefits.length > 0 && (
+                        <div>
+                          <h3 className="mb-3 text-lg font-bold text-secondary">Key Benefit Areas</h3>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            {benefits.map((b) => (
+                              <div
+                                key={b.label}
+                                className="flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card p-4 text-center shadow-sm"
+                              >
+                                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-primary">
+                                  <b.icon className="h-5 w-5" />
+                                </span>
+                                <span className="text-xs font-medium leading-tight text-foreground">
+                                  {b.label}
+                                </span>
+                              </div>
+                            ))}
                           </div>
+                        </div>
+                      )}
+                    </div>
 
-                          <CitationsBlock citations={rec.sample_citations ?? []} />
-                        </CardContent>
+                    {/* Evidence summary */}
+                    <div className="lg:col-span-1">
+                      <Card className="rounded-2xl border-border/70 p-5 shadow-sm">
+                        <h3 className="text-base font-bold text-secondary">Evidence Summary</h3>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {recommendations.length} recommendation{recommendations.length === 1 ? "" : "s"} graded
+                        </p>
+                        <div className="mt-5 space-y-4">
+                          {distribution.map((row) => {
+                            const gm = GRADE_META[row.key];
+                            return (
+                              <div key={row.key}>
+                                <div className="mb-1.5 flex items-center justify-between text-xs">
+                                  <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                    <span className={`h-2.5 w-2.5 rounded-full ${gm.dotClass}`} />
+                                    Grade {row.key} · {gm.chartLabel}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {row.count} · {row.percent}%
+                                  </span>
+                                </div>
+                                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${gm.barClass}`}
+                                    style={{ width: `${row.percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {totalPublications > 0 && (
+                          <p className="mt-5 flex items-center gap-1.5 border-t border-border pt-4 text-xs text-muted-foreground">
+                            <BookOpen className="h-3.5 w-3.5" />
+                            Based on{" "}
+                            <span className="font-semibold text-foreground">{totalPublications}</span>{" "}
+                            publication{totalPublications === 1 ? "" : "s"}
+                          </p>
+                        )}
                       </Card>
-                    );
-                  })}
-                </div>
-              )}
+                    </div>
+                  </div>
+                </TabsContent>
 
+                {/* -------------------- FOODS & NUTRIENTS -------------------- */}
+                <TabsContent value="foods" className="animate-fade-in">
+                  <div className="space-y-3">
+                    {recommendations.map((rec, idx) => {
+                      const v = getFoodVisual(rec.fruit_vegetable);
+                      const gm = gradeMeta(rec.evidence_grade);
+                      const key = `${rec.fruit_vegetable}-${idx}`;
+                      const fav = favorites.has(key);
+                      return (
+                        <div
+                          key={key}
+                          className="flex items-center gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
+                        >
+                          <div
+                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl ${v.ring}`}
+                          >
+                            {v.emoji}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate font-semibold capitalize text-foreground">
+                              {rec.fruit_vegetable}
+                            </h4>
+                            {rec.phytochemical && (
+                              <p className="truncate text-sm text-muted-foreground">{rec.phytochemical}</p>
+                            )}
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Recommended Quantity: <span className="text-foreground/80">100–150g/day</span>
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${gm.badgeClass}`}
+                          >
+                            {gm.cardLabel}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleFavorite(key)}
+                            aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+                            aria-pressed={fav}
+                            className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:text-primary"
+                          >
+                            <Heart
+                              className={`h-5 w-5 ${fav ? "fill-primary text-primary" : ""}`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+
+                {/* -------------------- GENES & PATHWAYS -------------------- */}
+                <TabsContent value="genes" className="animate-fade-in">
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-secondary">
+                        <Dna className="h-5 w-5 text-primary" /> Key Genes
+                      </h3>
+                      {genes.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {genes.map((g) => (
+                            <span
+                              key={g}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-accent/10 px-3 py-1.5 text-sm font-semibold text-primary"
+                            >
+                              <Dna className="h-3.5 w-3.5" />
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No gene targets reported.</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-secondary">
+                        <RouteIcon className="h-5 w-5 text-primary" /> Key Pathways
+                      </h3>
+                      {pathways.length > 0 ? (
+                        <div className="space-y-2">
+                          {pathways.map((p) => (
+                            <div
+                              key={p}
+                              className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3.5 shadow-sm"
+                            >
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-primary">
+                                <RouteIcon className="h-4 w-4" />
+                              </span>
+                              <span className="text-sm font-medium text-foreground">{p}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No pathways reported.</p>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
+                      onClick={() => comingSoon("Pathway diagram")}
+                    >
+                      <MapIcon className="h-4 w-4" /> View Pathway Diagram
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                {/* -------------------- MECHANISMS -------------------- */}
+                <TabsContent value="mechanisms" className="animate-fade-in">
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    How these compounds may act on the genes linked to{" "}
+                    <span className="capitalize text-foreground">{disease.name}</span>:
+                  </p>
+                  <ul className="space-y-2.5">
+                    {mechanisms.map((m, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
+                      >
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-primary">
+                          <Activity className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-medium text-foreground">{m.text}</span>
+                          {m.sub && <span className="block text-xs text-muted-foreground">{m.sub}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    variant="outline"
+                    className="mt-5 gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
+                    onClick={() => comingSoon("Mechanism map")}
+                  >
+                    <Network className="h-4 w-4" /> View Full Mechanism Map
+                  </Button>
+                </TabsContent>
+
+                {/* -------------------- SERVING & PREPARATION -------------------- */}
+                <TabsContent value="serving" className="animate-fade-in">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {foods.slice(0, 5).map((f) => {
+                      const v = getFoodVisual(f.name);
+                      const info = servingInfo(f.name);
+                      return (
+                        <div
+                          key={f.name}
+                          className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
+                        >
+                          <div className="mb-3 flex items-center gap-3">
+                            <div
+                              className={`flex h-11 w-11 items-center justify-center rounded-full text-xl ${v.ring}`}
+                            >
+                              {v.emoji}
+                            </div>
+                            <h4 className="font-semibold capitalize text-foreground">{f.name}</h4>
+                          </div>
+                          <dl className="space-y-2 text-sm">
+                            <div>
+                              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Best served
+                              </dt>
+                              <dd className="font-medium text-foreground">{info.serving}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Preparation effect
+                              </dt>
+                              <dd className="text-foreground/80">{info.effect}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+
+                {/* -------------------- REFERENCES -------------------- */}
+                <TabsContent value="references" className="animate-fade-in">
+                  {mode === "private" ? (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-card/50 p-8 text-center">
+                      <BookOpen className="mx-auto h-8 w-8 text-muted-foreground" />
+                      <p className="mt-3 font-medium text-foreground">Literature hidden in Private Mode</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Switch to <span className="font-medium text-primary">Academic Mode</span> to view the{" "}
+                        {citations.length} supporting citation{citations.length === 1 ? "" : "s"}.
+                      </p>
+                    </div>
+                  ) : citations.length > 0 ? (
+                    <>
+                      <p className="mb-4 text-sm text-muted-foreground">
+                        {citations.length} reference{citations.length === 1 ? "" : "s"} from CTD &amp; PubMed
+                      </p>
+                      <ol className="space-y-3">
+                        {citations.map((c, i) => {
+                          const url =
+                            c.url || (c.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${c.pmid}/` : undefined);
+                          return (
+                            <li
+                              key={`${c.pmid || c.title || i}`}
+                              className="rounded-2xl border border-border/70 bg-card p-4 text-sm shadow-sm"
+                            >
+                              <span className="flex gap-3">
+                                <span className="font-mono text-xs text-muted-foreground">{i + 1}.</span>
+                                <span className="min-w-0">
+                                  {c.title && <span className="font-medium text-foreground">{c.title}</span>}
+                                  {c.authors && <span className="text-muted-foreground"> — {c.authors}</span>}
+                                  {(c.journal || c.year) && (
+                                    <span className="italic text-muted-foreground">
+                                      {" "}
+                                      {c.journal}
+                                      {c.year ? `, ${c.year}` : ""}
+                                    </span>
+                                  )}
+                                  {url && (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline"
+                                    >
+                                      {c.pmid ? `PMID:${c.pmid}` : "View"}
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                </span>
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </>
+                  ) : (
+                    <p className="py-10 text-center text-sm text-muted-foreground">
+                      No literature citations available for this condition yet.
+                    </p>
+                  )}
+                </TabsContent>
+              </Tabs>
+            )}
+
+            <div className="mt-10">
               <MedicalDisclaimer />
-            </>
-          )}
-        </>
-      )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
