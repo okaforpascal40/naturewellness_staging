@@ -68,6 +68,7 @@ const Index = () => {
   const [selected, setSelected] = useState<OpenTargetsDisease | null>(null);
   const [nlText, setNlText] = useState("");
   const [language, setLanguage] = useState("English");
+  const [listening, setListening] = useState(false);
 
   // Open Targets autocomplete (same logic as the Conditions search)
   const [otResults, setOtResults] = useState<OpenTargetsDisease[]>([]);
@@ -78,6 +79,7 @@ const Index = () => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryPanelRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     const q = query.trim();
@@ -116,6 +118,9 @@ const Index = () => {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  // Abort any in-flight speech recognition if the user navigates away.
+  useEffect(() => () => recognitionRef.current?.abort(), []);
+
   const handleSelect = (d: OpenTargetsDisease) => {
     setSelected(d);
     setQuery(d.name);
@@ -148,6 +153,78 @@ const Index = () => {
     setQuery(chipQuery);
     setOtOpen(true);
     inputRef.current?.focus();
+  };
+
+  const handleVoiceSearch = () => {
+    // Toggle off if a recognizer is already in flight. Gate on the ref (assigned
+    // synchronously below) rather than the async `listening` state, so a quick
+    // second click during the permission prompt can't spawn a duplicate recognizer.
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      toast.error("Voice search not supported", {
+        description: "Your browser doesn't support speech recognition. Try Chrome, Edge, or Safari.",
+      });
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false; // one-shot final transcript — avoids mid-speech query churn
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+
+    // Calling start() prompts the browser for microphone permission.
+    recognition.onstart = () => setListening(true);
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      transcript = transcript.trim();
+      if (!transcript) return;
+      // Feed the text into the search box; the debounced effect on `query`
+      // automatically fires the Open Targets disease search.
+      setSelected(null);
+      setQuery(transcript);
+      setOtOpen(true);
+      inputRef.current?.focus();
+    };
+
+    recognition.onerror = (event) => {
+      setListening(false);
+      recognitionRef.current = null;
+      const description =
+        event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? "Microphone access was denied. Enable it in your browser settings and try again."
+          : event.error === "no-speech"
+            ? "We didn't catch that — please try speaking again."
+            : event.error === "audio-capture"
+              ? "No microphone was found. Check that one is connected."
+              : `Voice search error: ${event.error}`;
+      toast.error("Voice search failed", { description });
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      setListening(false);
+      recognitionRef.current = null;
+      toast.error("Could not start voice search", {
+        description: (err as Error)?.message || "Please try again.",
+      });
+    }
   };
 
   const handleGetRecommendations = () => {
@@ -264,10 +341,15 @@ const Index = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => comingSoon("Voice search")}
-                className="h-12 w-full rounded-2xl border-primary/30 text-base font-medium text-primary hover:bg-accent/10"
+                onClick={handleVoiceSearch}
+                aria-pressed={listening}
+                className={`h-12 w-full rounded-2xl text-base font-medium transition-colors ${
+                  listening
+                    ? "animate-pulse border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                    : "border-primary/30 text-primary hover:bg-accent/10"
+                }`}
               >
-                <Mic className="h-5 w-5" /> Voice Search
+                <Mic className="h-5 w-5" /> {listening ? "Listening…" : "Voice Search"}
               </Button>
             </div>
           </Card>

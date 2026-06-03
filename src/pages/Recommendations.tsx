@@ -31,6 +31,7 @@ import {
   topFoods,
   uniqueNonEmpty,
 } from "@/lib/food-display";
+import { downloadRecommendationsPdf } from "@/lib/pdf";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -57,6 +58,7 @@ const Recommendations = () => {
 
   const [mode, setMode] = useState<Mode>("academic");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [downloading, setDownloading] = useState(false);
 
   const mapped = DISEASE_MAP.find((d) => d.id === id);
   const otName = searchParams.get("name") || undefined;
@@ -129,6 +131,29 @@ const Recommendations = () => {
       return next;
     });
 
+  const handleDownload = async () => {
+    if (!data || recommendations.length === 0) {
+      toast("Nothing to download yet", {
+        description: "Wait for recommendations to finish loading, then try again.",
+      });
+      return;
+    }
+    setDownloading(true);
+    try {
+      await downloadRecommendationsPdf({ diseaseName: disease?.name ?? "Condition", data });
+      toast.success("PDF downloaded", {
+        description: "Your recommendations report has been saved.",
+      });
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("Could not generate PDF", {
+        description: (err as Error)?.message || "Please try again.",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const stats = [
     { label: "Genes", value: data?.genes_found ?? genes.length, icon: Dna },
     { label: "Pathways", value: data?.pathways_found ?? pathways.length, icon: RouteIcon },
@@ -167,20 +192,26 @@ const Recommendations = () => {
             {/* Action icons */}
             <div className="flex items-center gap-1">
               {[
-                { icon: Bookmark, label: "Save" },
-                { icon: Share2, label: "Share" },
-                { icon: Download, label: "Download" },
+                { icon: Bookmark, label: "Save", onClick: () => comingSoon("Save"), busy: false },
+                { icon: Share2, label: "Share", onClick: () => comingSoon("Share"), busy: false },
+                {
+                  icon: downloading ? Loader2 : Download,
+                  label: "Download",
+                  onClick: handleDownload,
+                  busy: downloading,
+                },
               ].map((a) => (
                 <Button
                   key={a.label}
                   variant="outline"
                   size="icon"
                   className="h-9 w-9 rounded-full border-border/70"
-                  onClick={() => comingSoon(a.label)}
+                  onClick={a.onClick}
+                  disabled={a.busy}
                   aria-label={a.label}
                   title={a.label}
                 >
-                  <a.icon className="h-4 w-4" />
+                  <a.icon className={`h-4 w-4 ${a.busy ? "animate-spin" : ""}`} />
                 </Button>
               ))}
             </div>
