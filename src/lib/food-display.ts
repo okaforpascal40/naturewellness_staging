@@ -302,8 +302,8 @@ export interface FoodSummary {
   publicationCount: number;
 }
 
-/** One row per food, keeping the best grade and summing publications. */
-export function topFoods(recs: Recommendation[], count = 10): FoodSummary[] {
+/** One row per food, keeping the best grade and summing publications, sorted best-first. */
+export function topFoods(recs: Recommendation[]): FoodSummary[] {
   const map = new Map<string, FoodSummary>();
   for (const r of recs) {
     const name = (r.fruit_vegetable || "").trim();

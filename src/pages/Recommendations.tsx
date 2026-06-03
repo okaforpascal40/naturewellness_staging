@@ -35,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MedicalDisclaimer from "@/components/MedicalDisclaimer";
 
 type Mode = "academic" | "private";
 
@@ -225,7 +224,7 @@ const Recommendations = () => {
             </div>
             <Progress
               value={undefined}
-              className="h-2 w-full [&>div]:animate-[indeterminate_1.5s_ease-in-out_infinite]"
+              className="h-2 w-full bg-muted [&>div]:animate-[indeterminate_1.5s_ease-in-out_infinite]"
             />
             <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -649,10 +648,6 @@ const Recommendations = () => {
                 </TabsContent>
               </Tabs>
             )}
-
-            <div className="mt-10">
-              <MedicalDisclaimer />
-            </div>
           </>
         )}
       </div>

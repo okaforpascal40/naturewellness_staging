@@ -44,13 +44,15 @@ const PLACEHOLDERS: Record<SearchType, string> = {
   organ: "Enter an organ or body system...",
 };
 
-const EXAMPLE_CHIPS = [
-  "Type 2 Diabetes",
-  "High Blood Pressure",
-  "Weight Loss",
-  "Fatty Liver",
-  "Boost Immunity",
-  "Healthy Heart",
+// Friendly labels mapped to disease terms the Open Targets search can resolve,
+// so every chip lands on real results instead of an empty state.
+const EXAMPLE_CHIPS: { label: string; query: string }[] = [
+  { label: "Type 2 Diabetes", query: "type 2 diabetes" },
+  { label: "High Blood Pressure", query: "hypertension" },
+  { label: "Weight Loss", query: "obesity" },
+  { label: "Fatty Liver", query: "fatty liver disease" },
+  { label: "Boost Immunity", query: "immunodeficiency" },
+  { label: "Healthy Heart", query: "cardiovascular disease" },
 ];
 
 const LANGUAGES = ["English", "Spanish", "French", "Arabic", "Hindi", "Mandarin", "Swahili"];
@@ -125,7 +127,9 @@ const Index = () => {
   };
 
   const handleSearch = () => {
-    if (otResults.length > 0) {
+    // Only auto-select once results for the *current* query have settled, so a
+    // pending search can't navigate to a stale result from a previous query.
+    if (!otLoading && otResults.length > 0) {
       handleSelect(otResults[0]);
       return;
     }
@@ -139,9 +143,9 @@ const Index = () => {
     }
   };
 
-  const handleChip = (chip: string) => {
+  const handleChip = (chipQuery: string) => {
     setSelected(null);
-    setQuery(chip);
+    setQuery(chipQuery);
     setOtOpen(true);
     inputRef.current?.focus();
   };
@@ -159,7 +163,7 @@ const Index = () => {
           <Card className="rounded-3xl border-border/70 bg-card p-6 shadow-sm sm:p-8">
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-secondary sm:text-3xl">
-                Hello there <span className="align-middle">👋</span>
+                Hello, friend <span className="align-middle">👋</span>
               </h1>
               <p className="mt-1 text-base text-muted-foreground sm:text-lg">
                 What would you like to explore today?
@@ -240,12 +244,12 @@ const Index = () => {
             <div className="mt-4 flex flex-wrap gap-2">
               {EXAMPLE_CHIPS.map((chip) => (
                 <button
-                  key={chip}
+                  key={chip.label}
                   type="button"
-                  onClick={() => handleChip(chip)}
+                  onClick={() => handleChip(chip.query)}
                   className="rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-accent/15 hover:text-primary"
                 >
-                  {chip}
+                  {chip.label}
                 </button>
               ))}
             </div>
@@ -304,7 +308,7 @@ const Index = () => {
               <div className="my-5 flex items-center gap-3">
                 <span className="h-px flex-1 bg-border" />
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Or describe your symptoms
+                  Or describe your symptoms (natural language)
                 </span>
                 <span className="h-px flex-1 bg-border" />
               </div>
