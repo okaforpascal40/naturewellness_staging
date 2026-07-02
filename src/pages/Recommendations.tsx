@@ -22,11 +22,14 @@ import { toast } from "sonner";
 import { DISEASE_MAP, runAutomation, type Citation, type Recommendation } from "@/lib/api";
 import {
   GRADE_META,
+  dataSourceLabel,
+  evidenceType,
   gradeDistribution,
   gradeMeta,
   getFoodVisual,
   mechanismText,
   servingInfo,
+  servingQuantity,
   topBenefitAreas,
   topFoods,
   uniqueNonEmpty,
@@ -481,6 +484,8 @@ const Recommendations = () => {
                       const key = `${rec.fruit_vegetable}-${idx}`;
                       const fav = favorites.has(key);
                       const pmids = pmidsFor(rec.sample_citations);
+                      const evType = evidenceType(rec.interaction_type);
+                      const source = dataSourceLabel(rec);
                       return (
                         <div
                           key={key}
@@ -500,7 +505,8 @@ const Recommendations = () => {
                               <p className="truncate text-sm text-muted-foreground">{rec.phytochemical}</p>
                             )}
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                              Recommended Quantity: <span className="text-foreground/80">100–150g/day</span>
+                              Recommended Quantity:{" "}
+                              <span className="text-foreground/80">{servingQuantity(rec.fruit_vegetable)}</span>
                             </p>
                           </div>
                           <span
@@ -521,25 +527,40 @@ const Recommendations = () => {
                           </button>
                           </div>
 
-                          {pmids.length > 0 && (
-                            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                <BookOpen className="h-3.5 w-3.5" /> View Scientific Sources:
+                          <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                            {pmids.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                  <BookOpen className="h-3.5 w-3.5" /> View Scientific Sources:
+                                </span>
+                                {pmids.map((pmid) => (
+                                  <a
+                                    key={pmid}
+                                    href={pubmedUrl(pmid)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={`PMID ${pmid}`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-accent/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
+                                  >
+                                    PubMed Reference · PMID {pmid}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span>
+                                Source:{" "}
+                                <span className="font-medium text-foreground/80">{source}</span>
                               </span>
-                              {pmids.map((pmid) => (
-                                <a
-                                  key={pmid}
-                                  href={pubmedUrl(pmid)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-accent/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
-                                >
-                                  PMID {pmid}
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
-                              ))}
+                              {evType && (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="h-1 w-1 rounded-full bg-border" />
+                                  {evType}
+                                </span>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
                       );
                     })}

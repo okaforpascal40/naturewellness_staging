@@ -237,6 +237,73 @@ export function mechanismText(interaction: string, gene: string): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Serving quantity defaults — by food category                        */
+/* ------------------------------------------------------------------ */
+
+// Ordered rules: leafy greens must win over the broad "fruit" matcher, and
+// nuts/seeds before anything else that might partially match.
+const QUANTITY_RULES: { match: RegExp; quantity: string }[] = [
+  {
+    match: /kale|spinach|broccoli|chard|collard|cabbage|lettuce|bok|sprout|arugula|rocket|leafy|green(s)?\b/,
+    quantity: "1-2 cups daily (cooked)",
+  },
+  {
+    match: /turmeric|curcum|ginger|cinnamon|clove|nutmeg|cardamom|cumin|coriander|pepper\b|spice/,
+    quantity: "1-2 tsp daily",
+  },
+  {
+    match: /peanut|pistachio|almond|walnut|cashew|hazelnut|pecan|macadamia|\bnut\b|seed|flax|chia|sesame|sunflower/,
+    quantity: "30g daily (small handful)",
+  },
+  {
+    match: /green tea|\btea\b|matcha|coffee|cocoa|cacao/,
+    quantity: "2-3 cups daily",
+  },
+  {
+    match: /blueberr|grape|apple|cranberr|strawberr|raspberr|blackberr|cherry|berry|orange|lemon|lime|citrus|banana|mango|peach|pear|pineapple|melon|pomegranate|fruit/,
+    quantity: "100-150g daily",
+  },
+];
+
+const DEFAULT_QUANTITY = "100-150g daily";
+
+/** Suggested daily serving quantity for a food, from static category defaults. */
+export function servingQuantity(name: string): string {
+  const key = (name || "").toLowerCase().trim();
+  if (key) {
+    for (const rule of QUANTITY_RULES) {
+      if (rule.match.test(key)) return rule.quantity;
+    }
+  }
+  return DEFAULT_QUANTITY;
+}
+
+/* ------------------------------------------------------------------ */
+/* Evidence type & data source labels                                  */
+/* ------------------------------------------------------------------ */
+
+/** Human label for the study type implied by a CTD interaction phrase. */
+export function evidenceType(interaction?: string | null): string | null {
+  const t = (interaction || "").toLowerCase();
+  if (/expression|activity|phosphorylation/.test(t)) return "Mechanistic Study";
+  if (/binding|reaction/.test(t)) return "Association Study";
+  return null;
+}
+
+/** Which upstream database a recommendation is attributed to. */
+export function dataSourceLabel(rec: Recommendation): string {
+  const explicit = (rec.data_source || rec.source || "").toLowerCase();
+  if (explicit) {
+    if (explicit.includes("ctd")) return "CTD Database";
+    if (explicit.includes("open")) return "Open Targets";
+    return rec.data_source || rec.source || "";
+  }
+  // Curated chemical–gene interactions with literature come from CTD; a bare
+  // disease→gene association without citations traces back to Open Targets.
+  return (rec.sample_citations?.length ?? 0) > 0 ? "CTD Database" : "Open Targets";
+}
+
+/* ------------------------------------------------------------------ */
 /* Serving & preparation defaults                                      */
 /* ------------------------------------------------------------------ */
 

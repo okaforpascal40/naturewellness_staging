@@ -18,6 +18,9 @@ export interface Recommendation {
   publication_count: number;
   interaction_type: string;
   sample_citations?: Citation[];
+  /** Upstream provenance, when the backend supplies it (e.g. "CTD", "Open Targets"). */
+  source?: string;
+  data_source?: string;
 }
 
 export interface AutomationRunResponse {
@@ -71,6 +74,13 @@ export interface OpenTargetsDisease {
 
 const OT_GRAPHQL = "https://api.platform.opentargets.org/api/v4/graphql";
 
+interface OpenTargetsSearchHit {
+  id: string;
+  name: string;
+  entity: string;
+  description?: string;
+}
+
 export async function searchOpenTargetsDiseases(
   query: string,
   signal?: AbortSignal,
@@ -96,11 +106,11 @@ export async function searchOpenTargetsDiseases(
   });
   if (!res.ok) throw new Error(`Open Targets search failed: ${res.status}`);
   const json = await res.json();
-  const hits = json?.data?.search?.hits ?? [];
+  const hits: OpenTargetsSearchHit[] = json?.data?.search?.hits ?? [];
   return hits
-    .filter((h: any) => h.entity === "disease")
+    .filter((h) => h.entity === "disease")
     .slice(0, 5)
-    .map((h: any) => ({ id: h.id, name: h.name, description: h.description }));
+    .map((h) => ({ id: h.id, name: h.name, description: h.description }));
 }
 
 export async function runAutomation(mondoId: string, maxGenes = 10): Promise<AutomationRunResponse> {
@@ -123,8 +133,8 @@ export async function runAutomation(mondoId: string, maxGenes = 10): Promise<Aut
     const json = await res.json();
     console.log("[runAutomation] API response:", json);
     return json;
-  } catch (err: any) {
-    if (err.name === "AbortError") {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
       throw new Error("Request timed out. The analysis is taking longer than expected. Please try again.");
     }
     throw err;
