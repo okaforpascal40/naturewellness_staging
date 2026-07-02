@@ -32,6 +32,7 @@ import {
   uniqueNonEmpty,
 } from "@/lib/food-display";
 import { downloadRecommendationsPdf } from "@/lib/pdf";
+import { DISCLAIMER_TEXT } from "@/components/MedicalDisclaimer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +51,37 @@ const TABS = [
 
 const comingSoon = (label: string) =>
   toast(`${label} is coming soon`, { description: "This feature isn't available yet." });
+
+const PUBMED_BASE = "https://pubmed.ncbi.nlm.nih.gov";
+
+/** Extract a numeric PMID from a Citation object or a raw string like "PMID: 12345678". */
+const pmidFromCitation = (c: Citation | string): string | undefined => {
+  if (typeof c === "string") {
+    const m = c.match(/PMID[:\s]*?(\d{4,9})/i) ?? c.match(/\b(\d{4,9})\b/);
+    return m?.[1];
+  }
+  if (c.pmid) {
+    const m = String(c.pmid).match(/(\d{4,9})/);
+    if (m) return m[1];
+  }
+  if (c.url) {
+    const m = c.url.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{4,9})/i);
+    if (m) return m[1];
+  }
+  return undefined;
+};
+
+/** Unique PMIDs for a set of citations, preserving first-seen order. */
+const pmidsFor = (citations?: (Citation | string)[]): string[] => {
+  const out: string[] = [];
+  for (const c of citations ?? []) {
+    const pmid = pmidFromCitation(c);
+    if (pmid && !out.includes(pmid)) out.push(pmid);
+  }
+  return out;
+};
+
+const pubmedUrl = (pmid: string) => `${PUBMED_BASE}/${pmid}/`;
 
 const Recommendations = () => {
   const { id } = useParams<{ id: string }>();
@@ -109,10 +141,12 @@ const Recommendations = () => {
 
   const citations = useMemo(() => {
     const seen = new Set<string>();
-    const out: Citation[] = [];
+    const out: (Citation | string)[] = [];
     for (const r of recommendations) {
-      for (const c of r.sample_citations ?? []) {
-        const key = (c.pmid || c.title || c.url || "").toLowerCase();
+      for (const c of (r.sample_citations ?? []) as (Citation | string)[]) {
+        const key = (
+          typeof c === "string" ? c : c.pmid || c.title || c.url || ""
+        ).toLowerCase();
         if (!key || seen.has(key)) continue;
         seen.add(key);
         out.push(c);
@@ -446,11 +480,13 @@ const Recommendations = () => {
                       const gm = gradeMeta(rec.evidence_grade);
                       const key = `${rec.fruit_vegetable}-${idx}`;
                       const fav = favorites.has(key);
+                      const pmids = pmidsFor(rec.sample_citations);
                       return (
                         <div
                           key={key}
-                          className="flex items-center gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
+                          className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
                         >
+                          <div className="flex items-center gap-4">
                           <div
                             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl ${v.ring}`}
                           >
@@ -483,6 +519,27 @@ const Recommendations = () => {
                               className={`h-5 w-5 ${fav ? "fill-primary text-primary" : ""}`}
                             />
                           </button>
+                          </div>
+
+                          {pmids.length > 0 && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                <BookOpen className="h-3.5 w-3.5" /> View Scientific Sources:
+                              </span>
+                              {pmids.map((pmid) => (
+                                <a
+                                  key={pmid}
+                                  href={pubmedUrl(pmid)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-accent/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
+                                >
+                                  PMID {pmid}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -634,23 +691,26 @@ const Recommendations = () => {
                       </p>
                       <ol className="space-y-3">
                         {citations.map((c, i) => {
-                          const url =
-                            c.url || (c.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${c.pmid}/` : undefined);
+                          const obj: Citation = typeof c === "string" ? {} : c;
+                          const pmid = pmidFromCitation(c);
+                          const url = obj.url || (pmid ? pubmedUrl(pmid) : undefined);
+                          const rawLabel = typeof c === "string" && !pmid ? c : undefined;
                           return (
                             <li
-                              key={`${c.pmid || c.title || i}`}
+                              key={`${pmid || obj.title || i}`}
                               className="rounded-2xl border border-border/70 bg-card p-4 text-sm shadow-sm"
                             >
                               <span className="flex gap-3">
                                 <span className="font-mono text-xs text-muted-foreground">{i + 1}.</span>
                                 <span className="min-w-0">
-                                  {c.title && <span className="font-medium text-foreground">{c.title}</span>}
-                                  {c.authors && <span className="text-muted-foreground"> — {c.authors}</span>}
-                                  {(c.journal || c.year) && (
+                                  {obj.title && <span className="font-medium text-foreground">{obj.title}</span>}
+                                  {rawLabel && <span className="text-foreground">{rawLabel}</span>}
+                                  {obj.authors && <span className="text-muted-foreground"> — {obj.authors}</span>}
+                                  {(obj.journal || obj.year) && (
                                     <span className="italic text-muted-foreground">
                                       {" "}
-                                      {c.journal}
-                                      {c.year ? `, ${c.year}` : ""}
+                                      {obj.journal}
+                                      {obj.year ? `, ${obj.year}` : ""}
                                     </span>
                                   )}
                                   {url && (
@@ -660,7 +720,7 @@ const Recommendations = () => {
                                       rel="noreferrer"
                                       className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline"
                                     >
-                                      {c.pmid ? `PMID:${c.pmid}` : "View"}
+                                      {pmid ? `PMID:${pmid}` : "View on PubMed"}
                                       <ExternalLink className="h-3 w-3" />
                                     </a>
                                   )}
@@ -679,6 +739,11 @@ const Recommendations = () => {
                 </TabsContent>
               </Tabs>
             )}
+
+            {/* Results disclaimer */}
+            <p className="mt-10 rounded-2xl border border-border/70 bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
+              {DISCLAIMER_TEXT}
+            </p>
           </>
         )}
       </div>
