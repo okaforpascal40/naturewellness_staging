@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  Camera,
   Heart,
   History,
   Home,
@@ -350,6 +351,13 @@ const Index = () => {
                 }`}
               >
                 <Mic className="h-5 w-5" /> {listening ? "Listening…" : "Voice Search"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/camscan")}
+                className="h-12 w-full rounded-2xl border-primary/30 text-base font-medium text-primary transition-colors hover:bg-accent/10"
+              >
+                <Camera className="h-5 w-5" /> Scan Plant 📷
               </Button>
             </div>
           </Card>

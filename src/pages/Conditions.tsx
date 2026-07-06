@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Search } from "lucide-react";
 import { DISEASE_MAP, searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,8 @@ const categoryColors: Record<string, string> = {
 const categories = ["All", ...new Set(DISEASE_MAP.map((d) => d.category))];
 
 const Conditions = () => {
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [activeCategory, setActiveCategory] = useState("All");
   const navigate = useNavigate();
 

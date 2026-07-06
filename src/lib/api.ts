@@ -113,6 +113,93 @@ export async function searchOpenTargetsDiseases(
     .map((h) => ({ id: h.id, name: h.name, description: h.description }));
 }
 
+/* ----------------------------- CamScan ------------------------------ */
+
+export interface PlantIdentification {
+  plant_name?: string;
+  scientific_name?: string;
+  confidence?: number; // 0–1
+  is_plant: boolean;
+  plant_image_url?: string | null;
+  common_names?: string[];
+  low_confidence?: boolean;
+}
+
+export interface HealthAssociation {
+  gene: string;
+  pathway: string;
+  evidence_grade: "A" | "B" | "C" | string;
+  publication_count: number;
+  interaction_type: string;
+  sample_citations: string[];
+  potential_health_benefit: string;
+}
+
+export interface HealthBenefitsResponse {
+  plant_name: string;
+  scientific_name: string;
+  phytochemicals: string[];
+  health_associations: HealthAssociation[];
+  conditions_supported: string[];
+  total_publications: number;
+  recommendation_source: string;
+  status: string; // "ok" | "no_data"
+  message?: string | null;
+}
+
+export async function identifyPlant(imageBase64: string): Promise<PlantIdentification> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/camscan/identify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imageBase64 }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Identification failed (${res.status}): ${text}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Identification timed out. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function getPlantHealthBenefits(
+  plantName: string,
+  scientificName = "",
+): Promise<HealthBenefitsResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/camscan/health-benefits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plant_name: plantName, scientific_name: scientificName }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Health benefits lookup failed (${res.status}): ${text}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Health benefits lookup timed out. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function runAutomation(mondoId: string, maxGenes = 10): Promise<AutomationRunResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout
