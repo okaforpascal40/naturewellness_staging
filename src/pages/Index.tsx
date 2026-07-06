@@ -4,15 +4,11 @@ import {
   ArrowLeft,
   ArrowRight,
   Camera,
-  Heart,
-  History,
-  Home,
   Languages,
   Loader2,
   Mic,
   Search,
   Sparkles,
-  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
@@ -57,9 +53,6 @@ const EXAMPLE_CHIPS: { label: string; query: string }[] = [
 ];
 
 const LANGUAGES = ["English", "Spanish", "French", "Arabic", "Hindi", "Mandarin", "Swahili"];
-
-const comingSoon = (label: string) =>
-  toast(`${label} is coming soon`, { description: "This feature isn't available yet." });
 
 const Index = () => {
   const navigate = useNavigate();
@@ -458,40 +451,6 @@ const Index = () => {
           )}
         </div>
       </div>
-
-      {/* ============================ BOTTOM NAV (mobile) ============================ */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex flex-col items-center gap-1 py-2.5 text-xs font-medium text-primary"
-          >
-            <Home className="h-5 w-5" /> Home
-          </button>
-          <button
-            type="button"
-            onClick={() => comingSoon("History")}
-            className="flex flex-col items-center gap-1 py-2.5 text-xs font-medium text-muted-foreground"
-          >
-            <History className="h-5 w-5" /> History
-          </button>
-          <button
-            type="button"
-            onClick={() => comingSoon("Favorites")}
-            className="flex flex-col items-center gap-1 py-2.5 text-xs font-medium text-muted-foreground"
-          >
-            <Heart className="h-5 w-5" /> Favorites
-          </button>
-          <button
-            type="button"
-            onClick={() => comingSoon("Profile")}
-            className="flex flex-col items-center gap-1 py-2.5 text-xs font-medium text-muted-foreground"
-          >
-            <User className="h-5 w-5" /> Profile
-          </button>
-        </div>
-      </nav>
     </div>
   );
 };

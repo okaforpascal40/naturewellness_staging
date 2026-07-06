@@ -8,6 +8,9 @@ import Index from "./pages/Index";
 import Conditions from "./pages/Conditions";
 import Recommendations from "./pages/Recommendations";
 import CamScan from "./pages/CamScan";
+import History from "./pages/History";
+import Favorites from "./pages/Favorites";
+import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +28,9 @@ const App = () => (
             <Route path="/conditions" element={<Conditions />} />
             <Route path="/conditions/:id" element={<Recommendations />} />
             <Route path="/camscan" element={<CamScan />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/favorites" element={<Favorites />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
           </Route>
           <Route path="*" element={<NotFound />} />

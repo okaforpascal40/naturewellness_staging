@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   BookOpen,
   Bookmark,
+  BookmarkCheck,
   Dna,
   Download,
   ExternalLink,
@@ -20,6 +21,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DISEASE_MAP, runAutomation, type Citation, type Recommendation } from "@/lib/api";
+import {
+  isFavorite,
+  removeFromFavorites,
+  saveToFavorites,
+  saveToHistory,
+} from "@/lib/storage";
 import {
   GRADE_META,
   dataSourceLabel,
@@ -119,6 +126,36 @@ const Recommendations = () => {
   );
 
   const foods = useMemo(() => topFoods(recommendations), [recommendations]);
+
+  // Favorites + history persistence. Primitive deps keep the effects from
+  // re-firing on every render (the OT `disease` object is rebuilt each render).
+  const [saved, setSaved] = useState(false);
+  const diseaseName = disease?.name;
+  const diseaseMondo = disease?.mondoId;
+
+  useEffect(() => {
+    setSaved(id ? isFavorite(id) : false);
+  }, [id]);
+
+  useEffect(() => {
+    if (id && diseaseName && diseaseMondo && recommendations.length > 0) {
+      saveToHistory({ id, name: diseaseName, mondoId: diseaseMondo }, recommendations);
+    }
+  }, [id, diseaseName, diseaseMondo, recommendations]);
+
+  const handleToggleSave = () => {
+    if (!id || !diseaseName || !diseaseMondo) return;
+    if (saved) {
+      removeFromFavorites(id);
+      setSaved(false);
+      toast("Removed from Favorites");
+    } else {
+      saveToFavorites({ id, name: diseaseName, mondoId: diseaseMondo }, recommendations);
+      setSaved(true);
+      toast.success("Saved to Favorites!");
+    }
+  };
+
   const genes = useMemo(
     () => uniqueNonEmpty(recommendations.map((r) => r.gene_target)),
     [recommendations],
@@ -229,26 +266,40 @@ const Recommendations = () => {
             {/* Action icons */}
             <div className="flex items-center gap-1">
               {[
-                { icon: Bookmark, label: "Save", onClick: () => comingSoon("Save"), busy: false },
-                { icon: Share2, label: "Share", onClick: () => comingSoon("Share"), busy: false },
+                {
+                  icon: saved ? BookmarkCheck : Bookmark,
+                  label: saved ? "Remove from Favorites" : "Save",
+                  onClick: handleToggleSave,
+                  busy: false,
+                  active: saved,
+                },
+                { icon: Share2, label: "Share", onClick: () => comingSoon("Share"), busy: false, active: false },
                 {
                   icon: downloading ? Loader2 : Download,
                   label: "Download",
                   onClick: handleDownload,
                   busy: downloading,
+                  active: false,
                 },
               ].map((a) => (
                 <Button
                   key={a.label}
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 rounded-full border-border/70"
+                  className={`h-9 w-9 rounded-full border-border/70 ${
+                    a.active ? "border-primary/40 bg-accent/15 text-primary" : ""
+                  }`}
                   onClick={a.onClick}
                   disabled={a.busy}
                   aria-label={a.label}
+                  aria-pressed={a.active}
                   title={a.label}
                 >
-                  <a.icon className={`h-4 w-4 ${a.busy ? "animate-spin" : ""}`} />
+                  <a.icon
+                    className={`h-4 w-4 ${a.busy ? "animate-spin" : ""} ${
+                      a.active ? "fill-primary/20" : ""
+                    }`}
+                  />
                 </Button>
               ))}
             </div>
