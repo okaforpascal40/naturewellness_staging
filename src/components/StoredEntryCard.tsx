@@ -44,7 +44,7 @@ const StoredEntryCard = ({ entry, onOpen, onDelete }: StoredEntryCardProps) => {
     }
   };
 
-  const onTouchStart = (e: React.TouchEvent) => {
+  const onTouchStart = (e: React.TouchEvent<HTMLElement>) => {
     if (!onDelete) return;
     startX.current = e.touches[0].clientX;
     restOffset.current = offset;
@@ -57,7 +57,7 @@ const StoredEntryCard = ({ entry, onOpen, onDelete }: StoredEntryCardProps) => {
     }, 450);
   };
 
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onTouchMove = (e: React.TouchEvent<HTMLElement>) => {
     if (!onDelete || startX.current === null) return;
     const delta = e.touches[0].clientX - startX.current;
     if (Math.abs(delta) > 6) clearLongPress();
@@ -66,7 +66,7 @@ const StoredEntryCard = ({ entry, onOpen, onDelete }: StoredEntryCardProps) => {
     e.currentTarget.style.transform = `translateX(${dragOffset.current}px)`;
   };
 
-  const onTouchEnd = (e: React.TouchEvent) => {
+  const onTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
     if (!onDelete) return;
     clearLongPress();
     setDragging(false);

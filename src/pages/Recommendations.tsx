@@ -42,7 +42,6 @@ import {
   uniqueNonEmpty,
 } from "@/lib/food-display";
 import { downloadRecommendationsPdf } from "@/lib/pdf";
-import { DISCLAIMER_TEXT } from "@/components/MedicalDisclaimer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -811,11 +810,6 @@ const Recommendations = () => {
                 </TabsContent>
               </Tabs>
             )}
-
-            {/* Results disclaimer */}
-            <p className="mt-10 rounded-2xl border border-border/70 bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
-              {DISCLAIMER_TEXT}
-            </p>
           </>
         )}
       </div>

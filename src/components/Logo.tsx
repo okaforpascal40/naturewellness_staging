@@ -53,14 +53,15 @@ const Logo = () => {
           NatureWellness
         </span>
 
-        {/* Ezekiel Reference — directly under the name, ~70% of its size, italic */}
+        {/* Ezekiel reference — centered directly under the wordmark, italic, small */}
         <span style={{
           fontFamily: "Georgia, 'Times New Roman', serif",
-          fontSize: '15px',
+          fontSize: '12px',
           fontWeight: '400',
           fontStyle: 'italic',
           color: '#16a34a',
           letterSpacing: '0.3px',
+          textAlign: 'center' as const,
           marginTop: '1px'
         }}>
           Ezek 47:12
@@ -77,18 +78,6 @@ const Logo = () => {
           textTransform: 'uppercase' as const
         }}>
           Nature • Science • Health
-        </span>
-
-        {/* Tagline */}
-        <span style={{
-          fontFamily: "'Trebuchet MS', Helvetica, sans-serif",
-          fontSize: '9px',
-          fontWeight: '500',
-          color: '#6b7280',
-          letterSpacing: '0.2px',
-          marginTop: '2px'
-        }}>
-          Plant Nutrition. Powered by Science. Guided by Nature.
         </span>
       </div>
     </div>

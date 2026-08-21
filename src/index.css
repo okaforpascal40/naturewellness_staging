@@ -147,3 +147,26 @@
     transform: translateX(100%);
   }
 }
+
+/*
+  Honour prefers-reduced-motion for decorative motion only. Loading spinners
+  are deliberately left running — they carry state, not decoration.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-reveal,
+  .animate-scan-dot,
+  .animate-viewfinder {
+    animation: none !important;
+  }
+
+  /* The scan sweep has no meaningful static frame — drop it entirely. */
+  .animate-scan-sweep {
+    display: none !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+}

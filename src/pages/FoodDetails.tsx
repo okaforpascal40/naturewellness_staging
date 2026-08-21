@@ -8,6 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MechanisticPathways from "@/components/MechanisticPathways";
 
+/** Shape of the embedded `health_conditions` row on a food_condition_link. */
+interface LinkedCondition {
+  id: string;
+  name: string;
+}
+
 const FoodDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -137,7 +143,7 @@ const FoodDetails = () => {
                   ? [queryConditionId, ...linkConditionIds]
                   : linkConditionIds;
                 const conditionNames: Record<string, string> = Object.fromEntries(
-                  (links ?? []).map((l) => [l.condition_id, (l.health_conditions as any)?.name ?? "Unknown"])
+                  (links ?? []).map((l) => [l.condition_id, (l.health_conditions as LinkedCondition | null)?.name ?? "Unknown"])
                 );
                 if (queryConditionId && queryCondition) {
                   conditionNames[queryConditionId] = queryCondition.name;
@@ -157,7 +163,7 @@ const FoodDetails = () => {
                   <h3 className="font-semibold mb-2">Related Conditions</h3>
                   <div className="flex flex-wrap gap-2">
                     {links.map((l) => {
-                      const cond = l.health_conditions as any;
+                      const cond = l.health_conditions as LinkedCondition | null;
                       return cond ? (
                         <Badge key={l.id} variant="secondary" className="cursor-pointer hover:bg-primary/10"
                           onClick={() => navigate(`/conditions/${cond.id}`)}>
@@ -245,10 +251,6 @@ const FoodDetails = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="mt-8 p-4 rounded-lg border bg-muted/50 text-xs text-muted-foreground">
-        ⚠️ This information is for educational purposes only and is not medical advice. Always consult your healthcare provider.
-      </div>
     </div>
   );
 };

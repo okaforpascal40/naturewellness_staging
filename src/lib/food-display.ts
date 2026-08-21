@@ -244,7 +244,7 @@ export function mechanismText(interaction: string, gene: string): string {
 // nuts/seeds before anything else that might partially match.
 const QUANTITY_RULES: { match: RegExp; quantity: string }[] = [
   {
-    match: /kale|spinach|broccoli|chard|collard|cabbage|lettuce|bok|sprout|arugula|rocket|leafy|green(s)?\b/,
+    match: /kale|spinach|broccoli|chard|collard|cabbage|lettuce|bok|sprout|arugula|rocket|leafy|greens\b/,
     quantity: "1-2 cups daily (cooked)",
   },
   {
@@ -342,6 +342,58 @@ export function servingInfo(name: string): ServingInfo {
     }
   }
   return DEFAULT_SERVING;
+}
+
+/* ------------------------------------------------------------------ */
+/* Heat sensitivity & wording helpers                                  */
+/* ------------------------------------------------------------------ */
+
+/** Static, non-personalised note shown wherever an intake amount is implied. */
+export const QUANTITY_NOTE = "Consult a nutritionist for specific quantities";
+
+// Ordered: spices are checked before fruits so "pepper" and "clove" do not
+// fall through to the broad fruit matcher.
+const HEAT_RULES: { match: RegExp; note: string }[] = [
+  {
+    match: /kale|spinach|broccoli|chard|collard|cabbage|lettuce|bok|sprout|arugula|rocket|watercress|moringa|amaranth|basil|parsley|cilantro|coriander leaf|mint|leafy|greens\b/,
+    note: "Best consumed raw or lightly cooked",
+  },
+  {
+    match: /turmeric|curcum|ginger|cinnamon|clove|nutmeg|cardamom|cumin|coriander|fenugreek|peppercorn|black pepper|chili|chilli|cayenne|paprika|anise|bay leaf|spice/,
+    note: "Heat-stable; safe to cook",
+  },
+  {
+    match: /blueberr|strawberr|raspberr|blackberr|cranberr|grape|cherry|berry|orange|lemon|lime|citrus|banana|mango|papaya|guava|peach|pear|plum|apple|pineapple|melon|watermelon|pomegranate|avocado|kiwi|apricot|fig|dates?\b|fruit/,
+    note: "Best consumed fresh/raw",
+  },
+];
+
+const DEFAULT_HEAT_NOTE = "Minimal processing recommended";
+
+/** Preparation guidance for a food, from static category defaults. */
+export function heatSensitivity(name: string): string {
+  const key = (name || "").toLowerCase().trim();
+  if (key) {
+    for (const rule of HEAT_RULES) {
+      if (rule.match.test(key)) return rule.note;
+    }
+  }
+  return DEFAULT_HEAT_NOTE;
+}
+
+/**
+ * Upstream literature phrasing sometimes reads "therapeutic", which implies a
+ * treatment claim we do not make. Rewrite it for display, preserving case.
+ */
+export function healthSupportingText(text?: string | null): string {
+  // Word-bounded so drug-class terms like "chemotherapeutic" survive intact.
+  return (text || "")
+    .replace(/\btherapeutics\b/gi, (m) =>
+      m[0] === "T" ? "Health-Supporting Effects" : "health-supporting effects",
+    )
+    .replace(/\btherapeutic\b/gi, (m) =>
+      m[0] === "T" ? "Health-Supporting" : "health-supporting",
+    );
 }
 
 /* ------------------------------------------------------------------ */

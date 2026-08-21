@@ -4,6 +4,8 @@ import Footer from "./Footer";
 import MedicalDisclaimer from "./MedicalDisclaimer";
 import BottomNav from "./BottomNav";
 
+// The disclaimer appears once, pinned to the top of every page. It is
+// deliberately not repeated at the bottom or under results.
 const Layout = () => (
   <div className="min-h-screen flex flex-col">
     <MedicalDisclaimer />
@@ -12,7 +14,6 @@ const Layout = () => (
     <main className="flex-1 pb-16 md:pb-0">
       <Outlet />
     </main>
-    <MedicalDisclaimer />
     <Footer />
     <BottomNav />
   </div>

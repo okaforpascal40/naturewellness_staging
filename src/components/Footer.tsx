@@ -7,12 +7,10 @@ const Footer = () => (
         <div style={{ transform: 'scale(0.85)' }}>
           <Logo />
         </div>
-        <div className="text-center space-y-1">
+        <div className="text-center">
+          {/* The medical disclaimer lives only at the top of the page (Layout). */}
           <p className="text-xs text-muted-foreground">
-            ⚠️ For educational purposes only. Not medical advice. Always consult your healthcare provider.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            © 2026 NatureWellness. For educational purposes only.
+            © 2026 NatureWellness
           </p>
         </div>
       </div>
