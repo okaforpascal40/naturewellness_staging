@@ -29,7 +29,9 @@
     --secondary-foreground: 0 0% 100%;
 
     --muted: 150 16% 94%;
-    --muted-foreground: 156 10% 42%;
+    /* 40%, not 42%: the "Insufficient Evidence" badge puts this on --muted,
+       which measured 4.32:1. Every other use gains contrast too. */
+    --muted-foreground: 156 10% 40%;
 
     --accent: 152 41% 52%; /* #52B788 medium green */
     --accent-foreground: 153 45% 16%;
@@ -43,12 +45,18 @@
 
     --radius: 1rem;
 
-    /* Evidence grade palette */
-    --evidence-a: 153 40% 30%; /* Grade A / High — #2D6A4F */
+    /* Evidence grade palette.
+       Every fill/foreground pair here is asserted at WCAG AA (4.5:1) by
+       src/test/contrast.test.ts — the badges carry 11px text, so the large-text
+       exemption does not apply. */
+    --evidence-a: 153 40% 30%; /* Grade A / High — #2D6A4F, 6.29:1 on white */
     --evidence-a-foreground: 0 0% 100%;
-    --evidence-b: 27 87% 67%; /* Grade B / Moderate — #F4A261 */
+    --evidence-b: 27 87% 67%; /* Grade B / Moderate — #F4A261, 6.22:1 */
     --evidence-b-foreground: 28 60% 18%;
-    --evidence-c: 12 76% 61%; /* Grade C / Emerging — #E76F51 */
+    /* Deepened from #E76F51 (3.11:1 — failed AA) to a burnt sienna that clears
+       it with white text, kept off --destructive's hue so a weak grade still
+       does not read as an error. */
+    --evidence-c: 14 72% 45%; /* Grade C / Emerging — #C54720, 4.89:1 */
     --evidence-c-foreground: 0 0% 100%;
 
     --sidebar-background: 153 30% 96%;
@@ -90,12 +98,15 @@
     --input: 156 14% 20%;
     --ring: 152 45% 45%;
 
+    /* Dark mode inverts the pattern: the fills must stay light to read against
+       the dark card, so the label goes dark — which is what Grade B already
+       did. White labels here measured 3.02:1 (A) and 3.61:1 (C). */
     --evidence-a: 152 45% 45%;
-    --evidence-a-foreground: 0 0% 100%;
+    --evidence-a-foreground: 152 60% 10%;
     --evidence-b: 27 80% 62%;
     --evidence-b-foreground: 28 60% 14%;
     --evidence-c: 12 70% 56%;
-    --evidence-c-foreground: 0 0% 100%;
+    --evidence-c-foreground: 12 60% 10%;
 
     --sidebar-background: 156 22% 9%;
     --sidebar-foreground: 150 15% 90%;
