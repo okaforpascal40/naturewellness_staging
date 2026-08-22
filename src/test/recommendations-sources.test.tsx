@@ -11,6 +11,12 @@ import type { AutomationRunResponse } from "@/lib/api";
  */
 const runAutomation = vi.hoisted(() => vi.fn());
 
+// The summary panel is an enhancement fetched from our backend; stub it so
+// these tests stay hermetic and never reach the network.
+vi.mock("@/lib/ai-summary", () => ({
+  generateHealthSummary: vi.fn().mockRejectedValue(new Error("stubbed")),
+}));
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
   return { ...actual, runAutomation };

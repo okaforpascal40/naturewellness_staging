@@ -22,6 +22,7 @@ import {
   Network,
   Route as RouteIcon,
   Share2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DISEASE_MAP, runAutomation, type Recommendation } from "@/lib/api";
@@ -55,7 +56,10 @@ import {
   totalPublicationCount,
   uniquePmidCount,
 } from "@/lib/citations";
+import { generateHealthSummary } from "@/lib/ai-summary";
 import { downloadRecommendationsPdf } from "@/lib/pdf";
+import FoodAvatar from "@/components/FoodAvatar";
+import LoadingCard from "@/components/LoadingCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -74,6 +78,9 @@ const TABS = [
 
 const comingSoon = (label: string) =>
   toast(`${label} is coming soon`, { description: "This feature isn't available yet." });
+
+/** Public app URL used in shared messages. */
+const SHARE_URL = "https://naturewellness-staging.vercel.app";
 
 /** Shared chip styling for the source / evidence-type labels on a reference. */
 const CHIP_CLASS =
@@ -212,6 +219,87 @@ const Recommendations = () => {
       return next;
     });
 
+  // ── AI summary ────────────────────────────────────────────────────────────
+  // Loaded lazily once results land, so it never delays the recommendations.
+  // Failure hides the section: it is an aid to reading the data, not the data.
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+
+  const topGrade = useMemo(() => {
+    const best = distribution.find((row) => row.count > 0);
+    return best ? `Grade ${best.key}` : "mixed";
+  }, [distribution]);
+
+  useEffect(() => {
+    if (!diseaseName || recommendations.length === 0) return;
+
+    const controller = new AbortController();
+    setSummaryLoading(true);
+    setSummaryFailed(false);
+
+    generateHealthSummary(
+      {
+        diseaseName,
+        topFoods: foods.map((f) => f.name),
+        topPhytochemicals: uniqueNonEmpty(recommendations.map((r) => r.phytochemical)),
+        topGenes: genes,
+        evidenceGrade: topGrade,
+      },
+      controller.signal,
+    )
+      .then((text) => setSummary(text))
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error("AI summary failed:", err);
+        setSummaryFailed(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSummaryLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [diseaseName, recommendations, foods, genes, topGrade]);
+
+  const handleShare = async () => {
+    const name = disease?.name ?? "this condition";
+    const gradeACount = recommendations.filter((r) => r.evidence_grade === "A").length;
+    const picks = foods.slice(0, 3).map((f) => f.name).join(", ");
+    const text =
+      `I just found ${foods.length} evidence-based plant foods for ${name} on NatureWellness 47:12!\n\n` +
+      (picks ? `Top picks: ${picks}\n\n` : "") +
+      `Evidence: ${gradeACount} Grade A source${gradeACount === 1 ? "" : "s"}\n\n` +
+      `Check it out: ${SHARE_URL}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "NatureWellness 47:12", text });
+        return;
+      } catch (err) {
+        // A user cancelling the sheet raises AbortError — not worth a fallback.
+        if ((err as Error)?.name === "AbortError") return;
+        console.error("Native share failed, falling back to WhatsApp:", err);
+      }
+    }
+
+    const opened = window.open(
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    if (!opened) {
+      // Popup blocked — put it on the clipboard so the tap still achieves something.
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success("Copied to clipboard", {
+          description: "Your browser blocked the share window, so we copied the text instead.",
+        });
+      } catch {
+        toast.error("Could not open share", { description: "Please try again." });
+      }
+    }
+  };
+
   const handleDownload = async () => {
     if (!data || recommendations.length === 0) {
       toast("Nothing to download yet", {
@@ -280,7 +368,7 @@ const Recommendations = () => {
                   busy: false,
                   active: saved,
                 },
-                { icon: Share2, label: "Share", onClick: () => comingSoon("Share"), busy: false, active: false },
+                { icon: Share2, label: "Share", onClick: handleShare, busy: false, active: false },
                 {
                   icon: downloading ? Loader2 : Download,
                   label: "Download",
@@ -341,33 +429,7 @@ const Recommendations = () => {
         )}
 
         {/* ============================ LOADING ============================ */}
-        {disease && isLoading && (
-          <div className="mx-auto max-w-lg space-y-6 py-16 text-center">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <div className="space-y-2">
-              <p className="text-lg font-semibold text-secondary">Searching CTD and PubMed databases…</p>
-              <p className="text-sm text-muted-foreground">This may take 30–60 seconds</p>
-            </div>
-            <Progress
-              value={undefined}
-              className="h-2 w-full bg-muted [&>div]:animate-[indeterminate_1.5s_ease-in-out_infinite]"
-            />
-            <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Dna className="h-3 w-3" /> Analyzing genes
-              </span>
-              <span className="flex items-center gap-1">
-                <RouteIcon className="h-3 w-3" /> Mapping pathways
-              </span>
-              <span className="flex items-center gap-1">
-                <FlaskConical className="h-3 w-3" /> Scoring compounds
-              </span>
-              <span className="flex items-center gap-1">
-                <BookOpen className="h-3 w-3" /> Reviewing literature
-              </span>
-            </div>
-          </div>
-        )}
+        {disease && isLoading && <LoadingCard />}
 
         {/* ============================ ERROR ============================ */}
         {disease && isError && (
@@ -425,6 +487,39 @@ const Recommendations = () => {
                 <TabsContent value="summary" className="animate-fade-in">
                   <div className="grid gap-6 lg:grid-cols-3">
                     <div className="space-y-8 lg:col-span-2">
+                      {/* AI summary — hidden entirely when it cannot be produced */}
+                      {(summaryLoading || summary) && !summaryFailed && (
+                        <section
+                          aria-labelledby="ai-summary-heading"
+                          aria-busy={summaryLoading}
+                          className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm"
+                        >
+                          <h3
+                            id="ai-summary-heading"
+                            className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                            AI Summary
+                          </h3>
+
+                          {summaryLoading ? (
+                            <div className="mt-3 space-y-2" aria-hidden="true">
+                              <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                              <div className="h-4 w-[92%] animate-pulse rounded bg-muted" />
+                              <div className="h-4 w-[68%] animate-pulse rounded bg-muted" />
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-base leading-relaxed text-foreground/90">
+                              {summary}
+                            </p>
+                          )}
+
+                          <p className="mt-3 border-t border-border/60 pt-2.5 text-[11px] text-muted-foreground">
+                            Generated from the evidence below. Not medical advice.
+                          </p>
+                        </section>
+                      )}
+
                       <p className="text-base leading-relaxed text-foreground/90">
                         Plant foods and their nutrients &amp; phytochemicals may support{" "}
                         <span className="font-semibold capitalize text-secondary">{disease.name}</span>{" "}
@@ -445,11 +540,11 @@ const Recommendations = () => {
                                 key={f.name}
                                 className="w-40 shrink-0 rounded-2xl border border-border/70 bg-card p-4 text-center shadow-sm"
                               >
-                                <div
-                                  className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl ${v.ring}`}
-                                >
-                                  {v.emoji}
-                                </div>
+                                <FoodAvatar
+                                  name={f.name}
+                                  className="mx-auto h-16 w-16"
+                                  emojiClassName="text-2xl"
+                                />
                                 <h4 className="mt-3 truncate text-sm font-semibold capitalize text-foreground">
                                   {f.name}
                                 </h4>
@@ -597,7 +692,6 @@ const Recommendations = () => {
                 <TabsContent value="foods" className="animate-fade-in">
                   <div className="space-y-3">
                     {recommendations.map((rec, idx) => {
-                      const v = getFoodVisual(rec.fruit_vegetable);
                       const gm = gradeMeta(rec.evidence_grade);
                       const key = `${rec.fruit_vegetable}-${idx}`;
                       const fav = favorites.has(key);
@@ -619,11 +713,11 @@ const Recommendations = () => {
                           className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
                         >
                           <div className="flex items-center gap-4">
-                          <div
-                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl ${v.ring}`}
-                          >
-                            {v.emoji}
-                          </div>
+                          <FoodAvatar
+                            name={rec.fruit_vegetable}
+                            className="h-20 w-20"
+                            emojiClassName="text-2xl"
+                          />
                           <div className="min-w-0 flex-1">
                             <h4 className="truncate font-semibold capitalize text-foreground">
                               {rec.fruit_vegetable}
@@ -828,7 +922,6 @@ const Recommendations = () => {
                 <TabsContent value="serving" className="animate-fade-in">
                   <div className="grid gap-3 sm:grid-cols-2">
                     {foods.slice(0, 5).map((f) => {
-                      const v = getFoodVisual(f.name);
                       const info = servingInfo(f.name);
                       return (
                         <div
@@ -836,11 +929,11 @@ const Recommendations = () => {
                           className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
                         >
                           <div className="mb-3 flex items-center gap-3">
-                            <div
-                              className={`flex h-11 w-11 items-center justify-center rounded-full text-xl ${v.ring}`}
-                            >
-                              {v.emoji}
-                            </div>
+                            <FoodAvatar
+                              name={f.name}
+                              className="h-12 w-12"
+                              emojiClassName="text-xl"
+                            />
                             <h4 className="font-semibold capitalize text-foreground">{f.name}</h4>
                           </div>
                           <dl className="space-y-2 text-sm">

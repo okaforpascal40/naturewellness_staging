@@ -1,4 +1,4 @@
-const API_BASE = "https://naturewellness-backend-production.up.railway.app";
+export const API_BASE = "https://naturewellness-backend-production.up.railway.app";
 
 export interface Citation {
   pmid?: string;
