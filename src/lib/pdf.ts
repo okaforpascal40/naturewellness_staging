@@ -9,6 +9,13 @@
  */
 import type { jsPDF } from "jspdf";
 import type { AutomationRunResponse } from "./api";
+import {
+  DATA_SOURCE_SUMMARY,
+  PUBMED_HOST,
+  groupReferences,
+  pubmedUrl,
+  totalPublicationCount,
+} from "./citations";
 import { GRADE_META, gradeDistribution, normalizeGrade, type GradeKey } from "./food-display";
 
 export interface RecommendationsPdfInput {
@@ -41,6 +48,35 @@ function titleCase(s: string): string {
   return s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
 
+// jsPDF's built-in Helvetica encodes Latin-1 only and silently DROPS anything
+// above U+00FF — a bullet or em dash disappears and leaves a double space, and
+// the Greek letters common in phytochemical names ("beta-Carotene" is curated
+// as "β-Carotene" in places) vanish mid-word. Map them to ASCII first.
+const PDF_CHAR_MAP: [RegExp, string][] = [
+  [/[‘’‛]/g, "'"],
+  [/[“”‟]/g, '"'],
+  [/[–—−]/g, "-"],
+  [/[•·‧]/g, "·"], // bullet -> middle dot (Latin-1 safe)
+  [/…/g, "..."],
+  [/[→➡]/g, "->"],
+  [/\u00a0/g, " "], // non-breaking space
+  [/α/g, "alpha-"],
+  [/β/g, "beta-"],
+  [/γ/g, "gamma-"],
+  [/δ/g, "delta-"],
+  [/κ/g, "kappa-"],
+  [/ω/g, "omega-"],
+];
+
+/** Rewrite text so every character survives jsPDF's Latin-1 standard fonts. */
+export function pdfSafe(text: string): string {
+  let out = text ?? "";
+  for (const [pattern, replacement] of PDF_CHAR_MAP) out = out.replace(pattern, replacement);
+  // Anything still outside Latin-1 would be dropped mid-word; a marker is
+  // clearer to a reader than a silently mangled compound name.
+  return out.replace(/[^ -ÿ]/g, "?").replace(/-{2,}/g, "-");
+}
+
 function safeFileName(s: string): string {
   const base = s.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
   return base || "Condition";
@@ -48,11 +84,13 @@ function safeFileName(s: string): string {
 
 /** Trim `text` with an ellipsis until it fits within `maxW` mm at the current font. */
 function fit(doc: jsPDF, text: string, maxW: number): string {
-  const t = (text ?? "").trim() || "—";
+  const t = pdfSafe(text ?? "").trim() || "-";
   if (doc.getTextWidth(t) <= maxW) return t;
   let s = t;
-  while (s.length > 1 && doc.getTextWidth(`${s}…`) > maxW) s = s.slice(0, -1);
-  return `${s}…`;
+  // "..." not "…": the ellipsis character is outside Latin-1 and would be
+  // dropped, leaving a silently truncated word with no marker.
+  while (s.length > 1 && doc.getTextWidth(`${s}...`) > maxW) s = s.slice(0, -1);
+  return `${s}...`;
 }
 
 export async function downloadRecommendationsPdf({
@@ -93,7 +131,7 @@ export async function downloadRecommendationsPdf({
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(INK[0], INK[1], INK[2]);
-  const titleLines = doc.splitTextToSize(title, CONTENT_W) as string[];
+  const titleLines = doc.splitTextToSize(pdfSafe(title), CONTENT_W) as string[];
   doc.text(titleLines, MARGIN, y);
   y += titleLines.length * 7;
 
@@ -136,14 +174,18 @@ export async function downloadRecommendationsPdf({
   doc.text("Evidence Summary", MARGIN, y);
   y += 6;
 
-  const totalPublications = recs.reduce((sum, r) => sum + (r.publication_count || 0), 0);
+  // Counted once per (phytochemical, gene) pair — the API repeats a pair for
+  // every food carrying the compound.
+  const totalPublications = totalPublicationCount(recs);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
   doc.text(
     `${recs.length} recommendation${recs.length === 1 ? "" : "s"} graded` +
       (totalPublications > 0
-        ? ` · based on ${totalPublications} publication${totalPublications === 1 ? "" : "s"}`
+        ? ` · based on ${totalPublications} publication${
+            totalPublications === 1 ? "" : "s"
+          } (counted once per compound-gene pair)`
         : ""),
     MARGIN,
     y,
@@ -239,7 +281,100 @@ export async function downloadRecommendationsPdf({
     doc.setFontSize(9);
     doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
     doc.text("No recommendations available for this condition yet.", MARGIN, y + 3);
+    y += 8;
   }
+
+  // ── Scientific references ─────────────────────────────────────────────────
+  // Break to a new page when `needed` mm would not fit above the footer.
+  const ensureSpace = (needed: number) => {
+    if (y + needed > BOTTOM_LIMIT) {
+      doc.addPage();
+      y = MARGIN;
+    }
+  };
+
+  const references = groupReferences(recs);
+
+  y += 8;
+  ensureSpace(30);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(INK[0], INK[1], INK[2]);
+  doc.text("Scientific References", MARGIN, y);
+  y += 6;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  const referenceIntro =
+    references.length > 0
+      ? `Based on ${totalPublications} peer-reviewed publication${
+          totalPublications === 1 ? "" : "s"
+        }. Every PMID below links to its PubMed record.`
+      : "No individual PubMed citations were returned for this condition yet.";
+  const introLines = doc.splitTextToSize(pdfSafe(referenceIntro), CONTENT_W) as string[];
+  doc.text(introLines, MARGIN, y);
+  y += introLines.length * 4.5 + 3;
+
+  references.forEach((g, i) => {
+    ensureSpace(18);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(INK[0], INK[1], INK[2]);
+    // "->" not "→": the built-in Helvetica encoding has no arrow glyph. The
+    // compound name is printed as curated, matching the table above — title-
+    // casing it would turn "beta-Carotene" into "Beta-carotene".
+    doc.text(fit(doc, `${i + 1}. ${g.phytochemical} -> ${g.gene}`, CONTENT_W - 26), MARGIN, y);
+    const gradeRgb = GRADE_RGB[g.grade];
+    doc.setFontSize(8.5);
+    doc.setTextColor(gradeRgb[0], gradeRgb[1], gradeRgb[2]);
+    doc.text(g.grade === "None" ? "Grade n/a" : `Grade ${g.grade}`, PAGE_W - MARGIN, y, {
+      align: "right",
+    });
+    y += 4.5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    const meta = [
+      `${g.publicationCount} publication${g.publicationCount === 1 ? "" : "s"}`,
+      g.interactionType ? `Interaction: ${g.interactionType}` : "",
+      `Source: ${g.source}`,
+      g.evidenceType,
+      g.foods.length > 0 ? `Found in: ${titleCase(g.foods.join(", "))}` : "",
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+    const metaLines = doc.splitTextToSize(pdfSafe(meta), CONTENT_W) as string[];
+    doc.text(metaLines, MARGIN, y);
+    y += metaLines.length * 4 + 0.5;
+
+    for (const pmid of g.pmids) {
+      ensureSpace(6);
+      const url = pubmedUrl(pmid);
+      doc.setTextColor(BRAND[0], BRAND[1], BRAND[2]);
+      doc.textWithLink(`PMID ${pmid} - ${url}`, MARGIN + 4, y, { url });
+      y += 4.2;
+    }
+
+    y += 3;
+    doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, y - 1.5, PAGE_W - MARGIN, y - 1.5);
+    y += 2;
+  });
+
+  // ── Reference footer: databases + where to read the originals ─────────────
+  ensureSpace(16);
+  y += 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(INK[0], INK[1], INK[2]);
+  doc.text(pdfSafe(`Data Sources: ${DATA_SOURCE_SUMMARY}`), MARGIN, y);
+  y += 4.5;
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text(`All references available at ${PUBMED_HOST}`, MARGIN, y);
 
   // ── Footer on every page ──────────────────────────────────────────────────
   const pageCount = doc.getNumberOfPages();

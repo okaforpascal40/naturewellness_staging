@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   BookOpen,
+  Database,
   Dna,
   ExternalLink,
+  FileText,
   Flame,
   FlaskConical,
   Leaf,
@@ -22,6 +24,15 @@ import {
   type PlantIdentification,
 } from "@/lib/api";
 import {
+  CTD_DATABASE,
+  DATA_SOURCE_SUMMARY,
+  PUBMED_HINT,
+  pmidsFor,
+  pubmedSearchUrl,
+  pubmedUrl,
+  referenceEvidenceType,
+} from "@/lib/citations";
+import {
   QUANTITY_NOTE,
   gradeMeta,
   healthSupportingText,
@@ -30,11 +41,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-const PUBMED_BASE = "https://pubmed.ncbi.nlm.nih.gov";
-
-/** Pull a numeric PMID out of a "PMID 12345678" citation string. */
-const pmidFrom = (citation: string): string | undefined =>
-  citation.match(/(\d{4,9})/)?.[1];
+/** Shared chip styling for source / evidence-type labels on association cards. */
+const CHIP_CLASS =
+  "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-foreground/75";
 
 /** Read a File as a base64 data URI. */
 const fileToDataUrl = (file: File): Promise<string> =>
@@ -613,12 +622,19 @@ const CamScan = () => {
                 <div className="space-y-3">
                   {benefits.health_associations.map((a, idx) => {
                     const gm = gradeMeta(a.evidence_grade);
-                    const pmids = a.sample_citations
-                      .map(pmidFrom)
-                      .filter((p): p is string => Boolean(p));
+                    const pmids = pmidsFor(a.sample_citations);
                     const supportingFunction = healthSupportingText(
                       a.potential_health_benefit,
                     );
+                    // The API pools every phytochemical's PMIDs per gene, so no
+                    // single compound can be named as this gene's partner —
+                    // attribute the citations to the plant, which is what the
+                    // evidence actually says, and search PubMed for the same thing.
+                    const plantLabel = benefits.plant_name || "this plant";
+                    const primarySourceUrl =
+                      pmids.length > 0
+                        ? pubmedUrl(pmids[0])
+                        : pubmedSearchUrl([plantLabel, a.gene]);
                     return (
                       <div
                         key={`${a.gene}-${idx}`}
@@ -684,25 +700,74 @@ const CamScan = () => {
                           />
                         </dl>
 
-                        {pmids.length > 0 && (
-                          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                              <BookOpen className="h-3.5 w-3.5" /> Sources:
-                            </span>
-                            {pmids.map((pmid) => (
-                              <a
-                                key={pmid}
-                                href={`${PUBMED_BASE}/${pmid}/`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-accent/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
-                              >
-                                PMID {pmid}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            ))}
+                        {/* Scientific sources — always shown, always reachable */}
+                        <div className="mt-3 border-t border-border/60 pt-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <BookOpen className="h-3.5 w-3.5 text-primary" /> Scientific
+                              sources
+                            </p>
+                            <a
+                              href={primarySourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              // Opens with the visible text so the accessible name
+                              // still contains it (WCAG 2.5.3).
+                              aria-label={`View Source for ${a.gene} on PubMed (opens in a new tab)`}
+                              title={`Open the PubMed evidence for ${a.gene}`}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-accent/20"
+                            >
+                              View Source
+                              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                            </a>
                           </div>
-                        )}
+                          <p className="mt-1.5 text-xs text-muted-foreground">
+                            PubMed citations linking{" "}
+                            <span className="capitalize">{plantLabel}</span>&rsquo;s phytochemicals
+                            to <span className="font-medium text-foreground/80">{a.gene}</span>
+                          </p>
+
+                          {pmids.length > 0 ? (
+                            <>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {pmids.map((pmid) => (
+                                  <a
+                                    key={pmid}
+                                    href={pubmedUrl(pmid)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    aria-label={`PubMed: ${pmid} — ${a.gene} evidence (opens in a new tab)`}
+                                    title={`Open PMID ${pmid} on PubMed`}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
+                                  >
+                                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                                    PubMed: {pmid}
+                                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                  </a>
+                                ))}
+                              </div>
+                              <p className="mt-2 text-[11px] italic text-muted-foreground">
+                                {PUBMED_HINT}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              No individual PMIDs were returned for this gene — use{" "}
+                              <span className="font-medium text-foreground/80">View Source</span>{" "}
+                              to search PubMed directly.
+                            </p>
+                          )}
+
+                          <div className="mt-2.5 flex flex-wrap gap-2">
+                            <span className={CHIP_CLASS}>
+                              <Database className="h-3 w-3 text-primary" aria-hidden="true" />
+                              Source: {CTD_DATABASE}
+                            </span>
+                            <span className={CHIP_CLASS}>
+                              {referenceEvidenceType(a.interaction_type)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -735,15 +800,21 @@ const CamScan = () => {
             {/* Footer summary + full evidence */}
             <Card className="rounded-3xl border-border/70 bg-muted/30 p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <BookOpen className="h-4 w-4" />
-                  Based on{" "}
-                  <span className="font-semibold text-foreground">
-                    {benefits.total_publications}
-                  </span>{" "}
-                  publication{benefits.total_publications === 1 ? "" : "s"} from academic
-                  literature
-                </p>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <BookOpen className="h-4 w-4 shrink-0" />
+                    Based on{" "}
+                    <span className="font-semibold text-foreground">
+                      {benefits.total_publications}
+                    </span>{" "}
+                    peer-reviewed publication
+                    {benefits.total_publications === 1 ? "" : "s"}
+                  </p>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Database className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    Data sources: {DATA_SOURCE_SUMMARY}
+                  </p>
+                </div>
                 {benefits.conditions_supported.length > 0 && (
                   <Button
                     variant="outline"

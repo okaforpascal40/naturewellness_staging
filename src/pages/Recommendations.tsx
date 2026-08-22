@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   Bookmark,
   BookmarkCheck,
+  ChevronDown,
+  Database,
   Dna,
   Download,
   ExternalLink,
+  FileText,
   FlaskConical,
   Heart,
   Loader2,
@@ -20,7 +24,7 @@ import {
   Share2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DISEASE_MAP, runAutomation, type Citation, type Recommendation } from "@/lib/api";
+import { DISEASE_MAP, runAutomation, type Recommendation } from "@/lib/api";
 import {
   isFavorite,
   removeFromFavorites,
@@ -41,6 +45,16 @@ import {
   topFoods,
   uniqueNonEmpty,
 } from "@/lib/food-display";
+import {
+  DATA_SOURCES,
+  DATA_SOURCE_SUMMARY,
+  PUBMED_HINT,
+  groupReferences,
+  pmidsFor,
+  pubmedUrl,
+  totalPublicationCount,
+  uniquePmidCount,
+} from "@/lib/citations";
 import { downloadRecommendationsPdf } from "@/lib/pdf";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -61,36 +75,9 @@ const TABS = [
 const comingSoon = (label: string) =>
   toast(`${label} is coming soon`, { description: "This feature isn't available yet." });
 
-const PUBMED_BASE = "https://pubmed.ncbi.nlm.nih.gov";
-
-/** Extract a numeric PMID from a Citation object or a raw string like "PMID: 12345678". */
-const pmidFromCitation = (c: Citation | string): string | undefined => {
-  if (typeof c === "string") {
-    const m = c.match(/PMID[:\s]*?(\d{4,9})/i) ?? c.match(/\b(\d{4,9})\b/);
-    return m?.[1];
-  }
-  if (c.pmid) {
-    const m = String(c.pmid).match(/(\d{4,9})/);
-    if (m) return m[1];
-  }
-  if (c.url) {
-    const m = c.url.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{4,9})/i);
-    if (m) return m[1];
-  }
-  return undefined;
-};
-
-/** Unique PMIDs for a set of citations, preserving first-seen order. */
-const pmidsFor = (citations?: (Citation | string)[]): string[] => {
-  const out: string[] = [];
-  for (const c of citations ?? []) {
-    const pmid = pmidFromCitation(c);
-    if (pmid && !out.includes(pmid)) out.push(pmid);
-  }
-  return out;
-};
-
-const pubmedUrl = (pmid: string) => `${PUBMED_BASE}/${pmid}/`;
+/** Shared chip styling for the source / evidence-type labels on a reference. */
+const CHIP_CLASS =
+  "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-foreground/75";
 
 const Recommendations = () => {
   const { id } = useParams<{ id: string }>();
@@ -100,6 +87,20 @@ const Recommendations = () => {
   const [mode, setMode] = useState<Mode>("academic");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
+  // Controlled so the Summary tab's "View All References" button can jump tabs.
+  const [tab, setTab] = useState("summary");
+  const [openSources, setOpenSources] = useState<Set<string>>(new Set());
+  const referencesTabRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * Jumping tabs unmounts the button that was clicked, so keyboard focus would
+   * fall back to the document. Hand it to the References tab instead, which
+   * both keeps the user oriented and announces the new tab.
+   */
+  const goToReferences = () => {
+    setTab("references");
+    requestAnimationFrame(() => referencesTabRef.current?.focus());
+  };
 
   const mapped = DISEASE_MAP.find((d) => d.id === id);
   const otName = searchParams.get("name") || undefined;
@@ -178,26 +179,33 @@ const Recommendations = () => {
     return out;
   }, [recommendations]);
 
-  const citations = useMemo(() => {
-    const seen = new Set<string>();
-    const out: (Citation | string)[] = [];
-    for (const r of recommendations) {
-      for (const c of (r.sample_citations ?? []) as (Citation | string)[]) {
-        const key = (
-          typeof c === "string" ? c : c.pmid || c.title || c.url || ""
-        ).toLowerCase();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        out.push(c);
-      }
-    }
-    return out;
-  }, [recommendations]);
+  // One academic entry per (phytochemical, gene) pair that carries citations.
+  const referenceGroups = useMemo(() => groupReferences(recommendations), [recommendations]);
+  const citedPmidCount = useMemo(() => uniquePmidCount(referenceGroups), [referenceGroups]);
 
-  const totalPublications = recommendations.reduce((sum, r) => sum + (r.publication_count || 0), 0);
+  // Counted once per pair: the API repeats a pair for every food carrying the
+  // compound, so summing the rows would multiply the same literature.
+  const totalPublications = useMemo(
+    () => totalPublicationCount(recommendations),
+    [recommendations],
+  );
 
   const toggleFavorite = (key: string) =>
     setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  // Rows are addressed by position, so a new condition's results must not
+  // inherit the previous one's expanded cards.
+  useEffect(() => {
+    setOpenSources(new Set());
+  }, [recommendations]);
+
+  const toggleSources = (key: string) =>
+    setOpenSources((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -399,12 +407,13 @@ const Recommendations = () => {
                 <p>No food recommendations found for this condition yet.</p>
               </div>
             ) : (
-              <Tabs defaultValue="summary" className="w-full">
+              <Tabs value={tab} onValueChange={setTab} className="w-full">
                 <TabsList className="mb-6 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-2xl bg-muted/70 p-1 no-scrollbar">
                   {TABS.map((t) => (
                     <TabsTrigger
                       key={t.value}
                       value={t.value}
+                      ref={t.value === "references" ? referencesTabRef : undefined}
                       className="shrink-0 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
                     >
                       {t.label}
@@ -457,6 +466,65 @@ const Recommendations = () => {
                           })}
                         </div>
                       </div>
+
+                      {/* Scientific basis — where the evidence comes from */}
+                      <section
+                        aria-labelledby="evidence-sources-heading"
+                        className="rounded-2xl border border-primary/25 bg-accent/10 p-5"
+                      >
+                        <h3
+                          id="evidence-sources-heading"
+                          className="flex items-center gap-2 text-lg font-bold text-secondary"
+                        >
+                          <BookOpen className="h-5 w-5 shrink-0 text-primary" /> Evidence Sources
+                        </h3>
+                        <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+                          {totalPublications > 0 ? (
+                            <>
+                              This analysis is based on{" "}
+                              <span className="font-semibold text-foreground">
+                                {totalPublications}
+                              </span>{" "}
+                              peer-reviewed publication
+                              {totalPublications === 1 ? "" : "s"} from the following databases:
+                            </>
+                          ) : (
+                            <>This analysis draws on the following scientific databases:</>
+                          )}
+                        </p>
+                        {/* role="list" survives Tailwind's list-style reset, which
+                            otherwise strips list semantics in some screen readers. */}
+                        <ul role="list" className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {DATA_SOURCES.map((s) => (
+                            <li
+                              key={s}
+                              className="flex items-start gap-2 text-sm leading-snug text-foreground/85"
+                            >
+                              <Database
+                                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                                aria-hidden="true"
+                              />
+                              {s}
+                            </li>
+                          ))}
+                        </ul>
+                        {mode === "private" ? (
+                          <p className="mt-4 text-xs text-muted-foreground">
+                            Individual citations are hidden in Private Mode — switch to{" "}
+                            <span className="font-medium text-primary">Academic Mode</span> to open
+                            the reference list.
+                          </p>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="mt-4 gap-2 rounded-xl border-primary/30 bg-background text-primary hover:bg-accent/15"
+                            onClick={goToReferences}
+                          >
+                            View All References{" "}
+                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        )}
+                      </section>
 
                       {/* Benefit areas */}
                       {benefits.length > 0 && (
@@ -536,6 +604,15 @@ const Recommendations = () => {
                       const pmids = pmidsFor(rec.sample_citations);
                       const evType = evidenceType(rec.interaction_type);
                       const source = dataSourceLabel(rec);
+                      const sourcesId = `food-sources-${idx}`;
+                      const sourcesOpen = openSources.has(key);
+                      const pairLabel = [rec.phytochemical, rec.gene_target]
+                        .filter(Boolean)
+                        .join(" acting on ");
+                      const sampleNote =
+                        rec.publication_count > pmids.length
+                          ? ` — showing ${pmids.length} of ${rec.publication_count}`
+                          : "";
                       return (
                         <div
                           key={key}
@@ -577,39 +654,81 @@ const Recommendations = () => {
                           </button>
                           </div>
 
-                          <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
-                            {pmids.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                  <BookOpen className="h-3.5 w-3.5" /> View Scientific Sources:
+                          <div className="mt-3 space-y-2.5 border-t border-border/60 pt-3">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                              {pmids.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSources(key)}
+                                  aria-expanded={sourcesOpen}
+                                  aria-controls={sourcesId}
+                                  aria-label={`${pmids.length} source${
+                                    pmids.length === 1 ? "" : "s"
+                                  } — ${sourcesOpen ? "hide" : "show"} PubMed references${
+                                    pairLabel ? ` for ${pairLabel}` : ""
+                                  }`}
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-accent/20"
+                                >
+                                  <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                                  {pmids.length} source{pmids.length === 1 ? "" : "s"}
+                                  <ChevronDown
+                                    className={`h-3.5 w-3.5 transition-transform ${
+                                      sourcesOpen ? "rotate-180" : ""
+                                    }`}
+                                    aria-hidden="true"
+                                  />
+                                </button>
+                              ) : (
+                                <span className={CHIP_CLASS}>
+                                  <FileText className="h-3 w-3" aria-hidden="true" />
+                                  No linked PubMed records
                                 </span>
-                                {pmids.map((pmid) => (
-                                  <a
-                                    key={pmid}
-                                    href={pubmedUrl(pmid)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    title={`PMID ${pmid}`}
-                                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-accent/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
-                                  >
-                                    PubMed Reference · PMID {pmid}
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                              <span>
+                              )}
+                              <span className="text-xs text-muted-foreground">
                                 Source:{" "}
                                 <span className="font-medium text-foreground/80">{source}</span>
                               </span>
                               {evType && (
-                                <span className="inline-flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                                   <span className="h-1 w-1 rounded-full bg-border" />
                                   {evType}
                                 </span>
                               )}
                             </div>
+
+                            {pmids.length > 0 && (
+                              // Kept in the DOM while collapsed so `aria-controls`
+                              // always resolves and in-page search still finds a PMID.
+                              <div
+                                id={sourcesId}
+                                hidden={!sourcesOpen}
+                                className="animate-fade-in rounded-xl bg-muted/50 p-3"
+                              >
+                                <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                  <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                                  PubMed references{pairLabel ? ` for ${pairLabel}` : ""}
+                                  {sampleNote}
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {pmids.map((pmid) => (
+                                    <a
+                                      key={pmid}
+                                      href={pubmedUrl(pmid)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      aria-label={`PubMed: ${pmid}${
+                                        pairLabel ? ` — ${pairLabel}` : ""
+                                      } (opens in a new tab)`}
+                                      title={`Open PMID ${pmid} on PubMed`}
+                                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-background px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent/20"
+                                    >
+                                      PubMed: {pmid}
+                                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -752,60 +871,145 @@ const Recommendations = () => {
                       <p className="mt-3 font-medium text-foreground">Literature hidden in Private Mode</p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Switch to <span className="font-medium text-primary">Academic Mode</span> to view the{" "}
-                        {citations.length} supporting citation{citations.length === 1 ? "" : "s"}.
+                        {citedPmidCount} supporting citation{citedPmidCount === 1 ? "" : "s"}.
                       </p>
                     </div>
-                  ) : citations.length > 0 ? (
-                    <>
-                      <p className="mb-4 text-sm text-muted-foreground">
-                        {citations.length} reference{citations.length === 1 ? "" : "s"} from CTD &amp; PubMed
-                      </p>
-                      <ol className="space-y-3">
-                        {citations.map((c, i) => {
-                          const obj: Citation = typeof c === "string" ? {} : c;
-                          const pmid = pmidFromCitation(c);
-                          const url = obj.url || (pmid ? pubmedUrl(pmid) : undefined);
-                          const rawLabel = typeof c === "string" && !pmid ? c : undefined;
-                          return (
-                            <li
-                              key={`${pmid || obj.title || i}`}
-                              className="rounded-2xl border border-border/70 bg-card p-4 text-sm shadow-sm"
-                            >
-                              <span className="flex gap-3">
-                                <span className="font-mono text-xs text-muted-foreground">{i + 1}.</span>
-                                <span className="min-w-0">
-                                  {obj.title && <span className="font-medium text-foreground">{obj.title}</span>}
-                                  {rawLabel && <span className="text-foreground">{rawLabel}</span>}
-                                  {obj.authors && <span className="text-muted-foreground"> — {obj.authors}</span>}
-                                  {(obj.journal || obj.year) && (
-                                    <span className="italic text-muted-foreground">
-                                      {" "}
-                                      {obj.journal}
-                                      {obj.year ? `, ${obj.year}` : ""}
+                  ) : (
+                    <div className="space-y-5">
+                      {/* Masthead: what this evidence rests on */}
+                      <section
+                        aria-labelledby="references-heading"
+                        className="rounded-2xl border border-primary/25 bg-accent/10 p-5"
+                      >
+                        <h3
+                          id="references-heading"
+                          className="flex items-center gap-2 text-lg font-bold text-secondary"
+                        >
+                          <BookOpen className="h-5 w-5 shrink-0 text-primary" /> Scientific References
+                        </h3>
+                        <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+                          Based on{" "}
+                          <span className="font-semibold text-foreground">{totalPublications}</span>{" "}
+                          peer-reviewed publication{totalPublications === 1 ? "" : "s"}
+                          {citedPmidCount > 0 && (
+                            <>
+                              , with{" "}
+                              <span className="font-semibold text-foreground">{citedPmidCount}</span>{" "}
+                              representative PubMed record{citedPmidCount === 1 ? "" : "s"} linked below
+                            </>
+                          )}
+                          .
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Publications are counted once per compound–gene pair, not once per food.
+                        </p>
+                        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                          <Database className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          Data sources: {DATA_SOURCE_SUMMARY}
+                        </p>
+                        <p className="mt-3 border-t border-primary/15 pt-3 text-xs italic text-muted-foreground">
+                          {PUBMED_HINT}
+                        </p>
+                      </section>
+
+                      {referenceGroups.length > 0 ? (
+                        <ol role="list" className="space-y-3">
+                          {referenceGroups.map((g) => {
+                            const gm = GRADE_META[g.grade];
+                            const showing =
+                              g.publicationCount > g.pmids.length
+                                ? `showing ${g.pmids.length} of ${g.publicationCount}`
+                                : "";
+                            return (
+                              <li
+                                key={g.key}
+                                className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <h4 className="text-base font-bold leading-snug text-secondary">
+                                      <span className="capitalize">{g.phytochemical}</span>
+                                      <span className="mx-1.5 text-primary" aria-hidden="true">
+                                        →
+                                      </span>
+                                      <span className="sr-only">acting on gene target</span>
+                                      <span className="font-mono">{g.gene}</span>
+                                    </h4>
+                                    {g.foods.length > 0 && (
+                                      <p className="mt-0.5 text-xs capitalize text-muted-foreground">
+                                        Found in: {g.foods.join(", ")}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${gm.badgeClass}`}
+                                  >
+                                    {gm.fullLabel}
+                                  </span>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1.5 font-semibold text-foreground/85">
+                                    <BookOpen className="h-3.5 w-3.5 text-primary" />
+                                    {g.publicationCount} publication
+                                    {g.publicationCount === 1 ? "" : "s"}
+                                  </span>
+                                  {g.interactionType && (
+                                    <span>
+                                      Interaction:{" "}
+                                      <span className="text-foreground/80">{g.interactionType}</span>
                                     </span>
                                   )}
-                                  {url && (
-                                    <a
-                                      href={url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline"
-                                    >
-                                      {pmid ? `PMID:${pmid}` : "View on PubMed"}
-                                      <ExternalLink className="h-3 w-3" />
-                                    </a>
+                                  {g.pathway && (
+                                    <span>
+                                      Pathway: <span className="text-foreground/80">{g.pathway}</span>
+                                    </span>
                                   )}
-                                </span>
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    </>
-                  ) : (
-                    <p className="py-10 text-center text-sm text-muted-foreground">
-                      No literature citations available for this condition yet.
-                    </p>
+                                </div>
+
+                                <div className="mt-3 border-t border-border/60 pt-3">
+                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    PubMed citations{showing ? ` · ${showing}` : ""}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {g.pmids.map((pmid) => (
+                                      <a
+                                        key={pmid}
+                                        href={pubmedUrl(pmid)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        // Opens with the visible text so the accessible
+                                        // name still contains it (WCAG 2.5.3).
+                                        aria-label={`PubMed: ${pmid} — ${g.phytochemical} acting on ${g.gene} (opens in a new tab)`}
+                                        title={`Open PMID ${pmid} on PubMed`}
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-accent/20"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                                        PubMed: {pmid}
+                                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+                                  <span className={CHIP_CLASS}>
+                                    <Database className="h-3 w-3 text-primary" aria-hidden="true" />
+                                    Source: {g.source}
+                                  </span>
+                                  <span className={CHIP_CLASS}>{g.evidenceType}</span>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      ) : (
+                        <p className="py-10 text-center text-sm text-muted-foreground">
+                          No individual PubMed citations were returned for this condition yet.
+                          The grades above still come from the databases listed.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </TabsContent>
               </Tabs>

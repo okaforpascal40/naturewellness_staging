@@ -17,7 +17,12 @@ export interface Recommendation {
   evidence_grade: "A" | "B" | "C" | string;
   publication_count: number;
   interaction_type: string;
-  sample_citations?: Citation[];
+  /**
+   * The automation engine emits plain "PMID 12345678" strings; structured
+   * records are accepted too, so both shapes are declared. Read them with the
+   * helpers in `@/lib/citations` rather than parsing inline.
+   */
+  sample_citations?: (Citation | string)[];
   /** Upstream provenance, when the backend supplies it (e.g. "CTD", "Open Targets"). */
   source?: string;
   data_source?: string;
