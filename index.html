@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <!-- .ico first as the fallback for browsers without SVG favicon support
+         (Safari below 15); modern browsers prefer the SVG that follows. -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- 180x180 is Apple's native size; icon-192.png would be downscaled. -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#2D6A4F" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
