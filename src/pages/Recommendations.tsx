@@ -57,6 +57,12 @@ import {
   uniquePmidCount,
 } from "@/lib/citations";
 import { generateHealthSummary } from "@/lib/ai-summary";
+import {
+  keggPathwayUrl,
+  openExternal,
+  reactomePathwayUrl,
+  stringMultiNetworkUrl,
+} from "@/lib/pathway-links";
 import { downloadRecommendationsPdf } from "@/lib/pdf";
 import FoodAvatar from "@/components/FoodAvatar";
 import LoadingCard from "@/components/LoadingCard";
@@ -75,9 +81,6 @@ const TABS = [
   { value: "serving", label: "Serving & Preparation" },
   { value: "references", label: "References" },
 ];
-
-const comingSoon = (label: string) =>
-  toast(`${label} is coming soon`, { description: "This feature isn't available yet." });
 
 /** Public app URL used in shared messages. */
 const SHARE_URL = "https://naturewellness-staging.vercel.app";
@@ -866,9 +869,31 @@ const Recommendations = () => {
                               className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3.5 shadow-sm"
                             >
                               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-primary">
-                                <RouteIcon className="h-4 w-4" />
+                                <RouteIcon className="h-4 w-4" aria-hidden="true" />
                               </span>
-                              <span className="text-sm font-medium text-foreground">{p}</span>
+                              <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                                {p}
+                              </span>
+                              <a
+                                href={keggPathwayUrl(p)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`View ${p} diagram on KEGG (opens in a new tab)`}
+                                title="View this pathway diagram on KEGG"
+                                className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/15 hover:text-primary"
+                              >
+                                <MapIcon className="h-4 w-4" aria-hidden="true" />
+                              </a>
+                              <a
+                                href={reactomePathwayUrl(p)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`View ${p} on Reactome (opens in a new tab)`}
+                                title="View this pathway on Reactome"
+                                className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/15 hover:text-primary"
+                              >
+                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                              </a>
                             </div>
                           ))}
                         </div>
@@ -877,13 +902,26 @@ const Recommendations = () => {
                       )}
                     </div>
 
-                    <Button
-                      variant="outline"
-                      className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
-                      onClick={() => comingSoon("Pathway diagram")}
-                    >
-                      <MapIcon className="h-4 w-4" /> View Pathway Diagram
-                    </Button>
+                    {pathways.length > 0 && (
+                      <div className="flex flex-wrap gap-3">
+                        <Button
+                          variant="outline"
+                          className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
+                          onClick={() => openExternal(keggPathwayUrl(pathways[0]))}
+                        >
+                          <MapIcon className="h-4 w-4" aria-hidden="true" /> View Pathway Diagram
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
+                          onClick={() => openExternal(reactomePathwayUrl(pathways[0]))}
+                        >
+                          <RouteIcon className="h-4 w-4" aria-hidden="true" /> View on Reactome
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
@@ -909,13 +947,16 @@ const Recommendations = () => {
                       </li>
                     ))}
                   </ul>
-                  <Button
-                    variant="outline"
-                    className="mt-5 gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
-                    onClick={() => comingSoon("Mechanism map")}
-                  >
-                    <Network className="h-4 w-4" /> View Full Mechanism Map
-                  </Button>
+                  {genes.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="mt-5 gap-2 rounded-xl border-primary/30 text-primary hover:bg-accent/10"
+                      onClick={() => openExternal(stringMultiNetworkUrl(genes))}
+                    >
+                      <Network className="h-4 w-4" aria-hidden="true" /> View Full Mechanism Map
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  )}
                 </TabsContent>
 
                 {/* -------------------- SERVING & PREPARATION -------------------- */}
