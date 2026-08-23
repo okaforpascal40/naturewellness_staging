@@ -120,6 +120,21 @@ export async function searchOpenTargetsDiseases(
 
 /* ----------------------------- CamScan ------------------------------ */
 
+export interface PlantConditionTreatment {
+  biological?: string;
+  chemical?: string;
+  prevention?: string;
+}
+
+export interface PlantCondition {
+  name: string;
+  probability?: number; // 0–1
+  is_harmful?: boolean;
+  description?: string;
+  treatment?: PlantConditionTreatment;
+  url?: string;
+}
+
 export interface PlantIdentification {
   plant_name?: string;
   scientific_name?: string;
@@ -128,6 +143,16 @@ export interface PlantIdentification {
   plant_image_url?: string | null;
   common_names?: string[];
   low_confidence?: boolean;
+
+  /**
+   * Health assessment. Present only when the configured provider returns one,
+   * so branch on `health_assessment_available` — an empty `plant_conditions`
+   * legitimately means "assessed and healthy".
+   */
+  is_healthy?: boolean;
+  health_probability?: number;
+  plant_conditions?: PlantCondition[];
+  health_assessment_available?: boolean;
 }
 
 export interface HealthAssociation {
