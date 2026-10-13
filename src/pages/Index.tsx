@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   Camera,
-  Languages,
   Loader2,
   Mic,
   Search,
@@ -15,15 +13,7 @@ import { searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type SearchType = "disease" | "symptom" | "goal" | "organ";
 
@@ -52,16 +42,15 @@ const EXAMPLE_CHIPS: { label: string; query: string }[] = [
   { label: "Healthy Heart", query: "cardiovascular disease" },
 ];
 
-const LANGUAGES = ["English", "Spanish", "French", "Arabic", "Hindi", "Mandarin", "Swahili"];
+/** Path of the results page for a chosen condition. */
+const conditionPath = (d: Pick<OpenTargetsDisease, "id" | "name">): string =>
+  `/conditions/${d.id}?name=${encodeURIComponent(d.name)}`;
 
 const Index = () => {
   const navigate = useNavigate();
 
   const [searchType, setSearchType] = useState<SearchType>("disease");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<OpenTargetsDisease | null>(null);
-  const [nlText, setNlText] = useState("");
-  const [language, setLanguage] = useState("English");
   const [listening, setListening] = useState(false);
 
   // Open Targets autocomplete (same logic as the Conditions search)
@@ -72,7 +61,6 @@ const Index = () => {
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const queryPanelRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
@@ -84,16 +72,20 @@ const Index = () => {
       return;
     }
     const controller = new AbortController();
+    // Drop the previous query's results up front: selecting navigates straight
+    // away, so Enter must never land on a match for text the user has replaced.
+    setOtResults([]);
     setOtLoading(true);
     setOtError(null);
     const t = setTimeout(async () => {
       try {
         const results = await searchOpenTargetsDiseases(q, controller.signal);
-        setOtResults(results);
+        if (!controller.signal.aborted) setOtResults(results);
       } catch (e: unknown) {
-        if ((e as Error)?.name !== "AbortError") setOtError("Could not load suggestions.");
+        if (!controller.signal.aborted) setOtError("Could not load suggestions.");
       } finally {
-        setOtLoading(false);
+        // A superseded request must not clear the loading flag of its successor.
+        if (!controller.signal.aborted) setOtLoading(false);
       }
     }, 300);
     return () => {
@@ -115,14 +107,11 @@ const Index = () => {
   // Abort any in-flight speech recognition if the user navigates away.
   useEffect(() => () => recognitionRef.current?.abort(), []);
 
+  // Picking a condition is the user's intent to see results, so go straight
+  // there rather than making them confirm with a second button.
   const handleSelect = (d: OpenTargetsDisease) => {
-    setSelected(d);
-    setQuery(d.name);
     setOtOpen(false);
-    // Bring the query panel into view on small screens.
-    window.setTimeout(() => {
-      queryPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    navigate(conditionPath(d));
   };
 
   const handleSearch = () => {
@@ -143,7 +132,6 @@ const Index = () => {
   };
 
   const handleChip = (chipQuery: string) => {
-    setSelected(null);
     setQuery(chipQuery);
     setOtOpen(true);
     inputRef.current?.focus();
@@ -185,7 +173,6 @@ const Index = () => {
       if (!transcript) return;
       // Feed the text into the search box; the debounced effect on `query`
       // automatically fires the Open Targets disease search.
-      setSelected(null);
       setQuery(transcript);
       setOtOpen(true);
       inputRef.current?.focus();
@@ -221,10 +208,8 @@ const Index = () => {
     }
   };
 
-  const handleGetRecommendations = () => {
-    if (!selected) return;
-    navigate(`/conditions/${selected.id}?name=${encodeURIComponent(selected.name)}`);
-  };
+  // Typed but not yet picked from the dropdown: offer to go to the best match.
+  const hasQuery = query.trim().length >= 2;
 
   return (
     <div className="min-h-[calc(100vh-8rem)] pb-24 lg:pb-12">
@@ -265,7 +250,6 @@ const Index = () => {
                 placeholder={PLACEHOLDERS[searchType]}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  setSelected(null);
                   setOtOpen(true);
                 }}
                 onFocus={() => setOtOpen(true)}
@@ -331,7 +315,15 @@ const Index = () => {
                 onClick={handleSearch}
                 className="h-12 w-full rounded-2xl bg-primary text-base font-semibold shadow-sm hover:bg-primary/90"
               >
-                <Search className="h-5 w-5" /> Search
+                {hasQuery ? (
+                  <>
+                    Get Recommendations <ArrowRight className="h-5 w-5" />
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-5 w-5" /> Search
+                  </>
+                )}
               </Button>
               <Button
                 variant="outline"
@@ -356,86 +348,6 @@ const Index = () => {
           </Card>
 
           {/* ============================ RIGHT PANEL ============================ */}
-          {selected ? (
-            <Card
-              ref={queryPanelRef}
-              className="animate-fade-in scroll-mt-24 rounded-3xl border-border/70 bg-card p-6 shadow-sm sm:p-8"
-            >
-              <div className="mb-6 flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full"
-                  onClick={() => {
-                    setSelected(null);
-                    inputRef.current?.focus();
-                  }}
-                  aria-label="Back to search"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <h2 className="text-xl font-bold text-secondary">Query Input</h2>
-              </div>
-
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Condition</label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={selected.name}
-                  readOnly
-                  className="h-12 rounded-2xl bg-muted/40 pl-11 text-base font-medium capitalize"
-                />
-              </div>
-
-              {/* OR — natural language */}
-              <div className="my-5 flex items-center gap-3">
-                <span className="h-px flex-1 bg-border" />
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Or describe your symptoms (natural language)
-                </span>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Natural language input
-              </label>
-              <Textarea
-                value={nlText}
-                onChange={(e) => setNlText(e.target.value)}
-                placeholder="e.g. I often feel tired after meals and my fasting sugar runs high…"
-                className="min-h-[110px] rounded-2xl bg-background text-base"
-              />
-
-              {/* Preferred language */}
-              <div className="mt-5">
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Preferred Language
-                </label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="h-12 rounded-2xl text-base">
-                    <span className="flex items-center gap-2">
-                      <Languages className="h-4 w-4 text-muted-foreground" />
-                      <SelectValue />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGES.map((lang) => (
-                      <SelectItem key={lang} value={lang}>
-                        {lang}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={handleGetRecommendations}
-                className="mt-6 h-12 w-full rounded-2xl bg-primary text-base font-semibold shadow-sm hover:bg-primary/90"
-              >
-                Get Recommendations <ArrowRight className="h-5 w-5" />
-              </Button>
-            </Card>
-          ) : (
             <div className="hidden flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-card/40 p-10 text-center lg:flex">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 text-primary">
                 <Sparkles className="h-8 w-8" />
@@ -448,7 +360,6 @@ const Index = () => {
                 and pathways behind them.
               </p>
             </div>
-          )}
         </div>
       </div>
     </div>

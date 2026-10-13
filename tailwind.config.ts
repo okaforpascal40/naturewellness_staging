@@ -120,6 +120,23 @@ export default {
           "0%": { transform: "translateY(-110%)" },
           "100%": { transform: "translateY(560%)" },
         },
+        /* PremiumLoader: the leaf mark breathing at the centre of the ring. */
+        "leaf-breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.92" },
+          "50%": { transform: "scale(1.07)", opacity: "1" },
+        },
+        /* PremiumLoader: background dots drifting upward and fading out. */
+        "particle-drift": {
+          "0%": { transform: "translateY(0) scale(0.6)", opacity: "0" },
+          "15%": { opacity: "0.7" },
+          "85%": { opacity: "0.5" },
+          "100%": { transform: "translateY(-120px) scale(1)", opacity: "0" },
+        },
+        /* PremiumLoader: status line rising into place on each change. */
+        "status-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -130,6 +147,9 @@ export default {
         "scan-dot": "scan-dot 1.2s ease-in-out infinite",
         viewfinder: "viewfinder 2s ease-in-out infinite",
         "scan-sweep": "scan-sweep 1.8s ease-in-out infinite",
+        "leaf-breathe": "leaf-breathe 2.4s ease-in-out infinite",
+        "particle-drift": "particle-drift 6s ease-in-out infinite",
+        "status-in": "status-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

@@ -65,7 +65,7 @@ import {
 } from "@/lib/pathway-links";
 import { downloadRecommendationsPdf } from "@/lib/pdf";
 import FoodAvatar from "@/components/FoodAvatar";
-import LoadingCard from "@/components/LoadingCard";
+import PremiumLoader from "@/components/PremiumLoader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -122,7 +122,7 @@ const Recommendations = () => {
       ? { name: otName || id.replace(/_/g, ":"), mondoId: id }
       : undefined;
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["automation-run", disease?.mondoId],
     queryFn: () => runAutomation(disease!.mondoId),
     enabled: !!disease,
@@ -432,10 +432,11 @@ const Recommendations = () => {
         )}
 
         {/* ============================ LOADING ============================ */}
-        {disease && isLoading && <LoadingCard />}
+        {/* Also covers "Try Again" after an error, where isLoading stays false. */}
+        {disease && <PremiumLoader visible={isFetching && !data} />}
 
         {/* ============================ ERROR ============================ */}
-        {disease && isError && (
+        {disease && isError && !isFetching && (
           <div className="mx-auto max-w-lg space-y-4 py-16 text-center">
             <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
             <p className="text-lg font-semibold text-secondary">Something went wrong</p>
