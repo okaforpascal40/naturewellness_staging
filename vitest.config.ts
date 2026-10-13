@@ -9,6 +9,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // The first render of a page in each file pays a cold transform of its
+    // whole import graph; under a full parallel run that can exceed 5s.
+    testTimeout: 15_000,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
