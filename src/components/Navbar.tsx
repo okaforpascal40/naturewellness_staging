@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
+import AuthButton from "@/components/AuthButton";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -12,7 +13,6 @@ const Navbar = () => {
     { to: "/", label: "Home" },
     { to: "/conditions", label: "Conditions" },
     { to: "/camscan", label: "Scan Plant 📷" },
-    { to: "/admin", label: "Admin" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -36,6 +36,7 @@ const Navbar = () => {
               </Button>
             </Link>
           ))}
+          <AuthButton className="ml-2" />
         </div>
 
         {/* Mobile toggle */}
@@ -54,6 +55,7 @@ const Navbar = () => {
               </Button>
             </Link>
           ))}
+          <AuthButton className="mt-2 w-full" />
         </div>
       )}
     </nav>
