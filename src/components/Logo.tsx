@@ -4,39 +4,19 @@ const Logo = () => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       
-      {/* Leaf Icon */}
-      <svg xmlns="http://www.w3.org/2000/svg" 
-        viewBox="0 0 80 80" width="50" height="50">
-        <defs>
-          <linearGradient id="leafG" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style={{stopColor:'#16a34a',stopOpacity:1}} />
-            <stop offset="100%" style={{stopColor:'#15803d',stopOpacity:1}} />
-          </linearGradient>
-          <linearGradient id="leafG2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style={{stopColor:'#22c55e',stopOpacity:1}} />
-            <stop offset="100%" style={{stopColor:'#16a34a',stopOpacity:1}} />
-          </linearGradient>
-          <linearGradient id="accentG" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style={{stopColor:'#f59e0b',stopOpacity:1}} />
-            <stop offset="100%" style={{stopColor:'#d97706',stopOpacity:1}} />
-          </linearGradient>
-        </defs>
-        <circle cx="40" cy="40" r="36" fill="none" stroke="#dcfce7" strokeWidth="1.5"/>
-        <path d="M40 8 C40 8 65 22 65 44 C65 58 54 68 40 68 C26 68 15 58 15 44 C15 22 40 8 40 8 Z"
-          fill="url(#leafG)"/>
-        <path d="M40 64 C40 64 40 20 40 10" 
-          stroke="#bbf7d0" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.7"/>
-        <path d="M40 52 C33 48 24 46 18 44" stroke="#bbf7d0" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5"/>
-        <path d="M40 42 C33 38 25 36 19 33" stroke="#bbf7d0" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5"/>
-        <path d="M40 52 C47 48 56 46 62 44" stroke="#bbf7d0" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5"/>
-        <path d="M40 42 C47 38 55 36 61 33" stroke="#bbf7d0" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.5"/>
-        <path d="M50 12 C50 12 68 20 66 34 C64 44 56 48 49 43 C42 38 42 24 50 12 Z"
-          fill="url(#leafG2)" opacity="0.85"/>
-        <path d="M24 46 C24 46 10 50 8 60 C6 68 13 74 21 71 C29 68 32 56 24 46 Z"
-          fill="url(#leafG2)" opacity="0.75"/>
-        <circle cx="40" cy="40" r="3.5" fill="url(#accentG)"/>
-        <circle cx="40" cy="28" r="2" fill="#fbbf24" opacity="0.8"/>
-        <circle cx="40" cy="52" r="2" fill="#fbbf24" opacity="0.8"/>
+      {/* Leaf Icon — same mark as public/favicon.svg; keep the two in sync. */}
+      <svg xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 32 32" width="50" height="50" aria-hidden="true">
+        <circle cx="16" cy="16" r="16" fill="#2D6A4F"/>
+        <g transform="rotate(36 16 16)">
+          <path d="M16 22.4C16 24.8 15.7 26.2 14.8 27.3" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"/>
+          <path fill="#fff" d="M16 4C16.65 5.7 17.8 7 19.35 8.5C21.5 10.6 22.7 13 22.7 15.8C22.7 20.1 19.7 23.4 16 23.4C12.3 23.4 9.3 20.1 9.3 15.8C9.3 13 10.5 10.6 12.65 8.5C14.2 7 15.35 5.7 16 4Z"/>
+          <path fill="#2D6A4F" d="M15.35 21.6L15.72 7.9Q16 7.2 16.28 7.9L16.65 21.6Q16 22.1 15.35 21.6Z"/>
+          <g fill="none" stroke="#2D6A4F" strokeLinecap="round" strokeWidth="1.05">
+            <path d="M16 19.3C17.9 18.9 19.6 17.9 20.6 16.3M16 19.3C14.1 18.9 12.4 17.9 11.4 16.3"/>
+            <path d="M16 14.3C17.6 13.9 18.8 12.9 19.5 11.5M16 14.3C14.4 13.9 13.2 12.9 12.5 11.5"/>
+          </g>
+        </g>
       </svg>
 
       {/* Text Block */}

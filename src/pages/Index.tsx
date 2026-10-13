@@ -15,6 +15,7 @@ import {
   type OpenTargetsDisease,
 } from "@/lib/api";
 import { FROM_SEARCH_NAV, conditionPath } from "@/lib/condition-nav";
+import { firstNameOf, useUser } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,8 @@ const plantPath = (name: string): string => `/plant/${encodeURIComponent(name)}`
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, loading: userLoading } = useUser();
+  const firstName = user ? firstNameOf(user) : null;
 
   const [mode, setMode] = useState<SearchMode>("condition");
   const [searchType, setSearchType] = useState<SearchType>("disease");
@@ -297,10 +300,14 @@ const Index = () => {
           <Card className="rounded-3xl border-border/70 bg-card p-6 shadow-sm sm:p-8">
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-secondary sm:text-3xl">
-                Hello, friend <span className="align-middle">👋</span>
+                {/* While the session resolves, don't flash "friend" at a signed-in user. */}
+                {userLoading ? "Hello" : `Hello, ${firstName ?? "friend"}`}{" "}
+                <span className="align-middle">👋</span>
               </h1>
               <p className="mt-1 text-base text-muted-foreground sm:text-lg">
-                What would you like to explore today?
+                {firstName
+                  ? `What would you like to explore today, ${firstName}?`
+                  : "What would you like to explore today?"}
               </p>
             </div>
 

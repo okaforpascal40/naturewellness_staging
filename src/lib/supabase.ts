@@ -117,6 +117,15 @@ const metaString = (user: User, key: string): string | null => {
 export const displayNameOf = (user: User): string =>
   metaString(user, "full_name") ?? metaString(user, "name") ?? user.email ?? "";
 
+/** First name for a greeting: first word of the Google name, else the email's local part. */
+export const firstNameOf = (user: User): string | null => {
+  const fullName = metaString(user, "full_name") ?? metaString(user, "name");
+  const first = fullName?.split(/\s+/)[0];
+  if (first) return first;
+  const local = user.email?.split("@")[0]?.trim();
+  return local || null;
+};
+
 export const avatarUrlOf = (user: User): string | null =>
   metaString(user, "avatar_url") ?? metaString(user, "picture");
 
