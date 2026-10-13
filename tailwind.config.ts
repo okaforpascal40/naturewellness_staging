@@ -148,6 +148,8 @@ export default {
         viewfinder: "viewfinder 2s ease-in-out infinite",
         "scan-sweep": "scan-sweep 1.8s ease-in-out infinite",
         "leaf-breathe": "leaf-breathe 2.4s ease-in-out infinite",
+        /* PremiumLoader: one full turn of the arc per 0.9s. */
+        "ring-spin": "spin 0.9s linear infinite",
         "particle-drift": "particle-drift 6s ease-in-out infinite",
         "status-in": "status-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both",
       },

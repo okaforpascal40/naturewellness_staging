@@ -6,7 +6,6 @@ import {
   MESSAGE_INTERVAL_MS,
   STATUS_MESSAGES,
   messageIndex,
-  ringProgress,
 } from "@/lib/premium-loader";
 
 beforeEach(() => vi.useFakeTimers());
@@ -41,11 +40,18 @@ describe("status messages", () => {
   });
 });
 
-describe("progress ring", () => {
-  it("grows over time but never claims completion while still loading", () => {
-    expect(ringProgress(0)).toBe(0);
-    expect(ringProgress(30_000)).toBeGreaterThan(ringProgress(10_000));
-    expect(ringProgress(10 * 60 * 1000)).toBeLessThan(100);
+describe("spinning ring", () => {
+  it("spins an arc covering a third of the circle", () => {
+    render(<PremiumLoader visible />);
+    const ring = screen.getByTestId("premium-loader-ring");
+    expect(ring).toHaveClass("motion-safe:animate-ring-spin");
+
+    const [arc, gap] = ring
+      .querySelector("circle[stroke-dasharray]")!
+      .getAttribute("stroke-dasharray")!
+      .split(" ")
+      .map(Number);
+    expect(arc / gap).toBeCloseTo(1 / 3);
   });
 });
 

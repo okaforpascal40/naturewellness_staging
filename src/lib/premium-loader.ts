@@ -19,14 +19,6 @@ export const FADE_MS = 500;
 
 /** How often the elapsed clock advances. */
 export const TICK_MS = 500;
-/** The ring never claims completion before the data has actually arrived. */
-const RING_CEILING = 95;
-/** Seconds for the ring to cover ~63% of the way to the ceiling. */
-const RING_TIME_CONSTANT_S = 20;
-
-export const ringProgress = (elapsedMs: number): number =>
-  RING_CEILING * (1 - Math.exp(-elapsedMs / 1000 / RING_TIME_CONSTANT_S));
-
 /** Lookups outlast one pass through the messages, so keep cycling them. */
 export const messageIndex = (elapsedMs: number): number =>
   Math.floor(elapsedMs / MESSAGE_INTERVAL_MS) % STATUS_MESSAGES.length;

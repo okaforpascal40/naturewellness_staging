@@ -5,21 +5,22 @@ import {
   STATUS_MESSAGES,
   TICK_MS,
   messageIndex,
-  ringProgress,
 } from "@/lib/premium-loader";
 
 /**
  * Full-screen overlay shown while a condition lookup runs (typically 30–60s
- * against live evidence databases). It narrates the pipeline, draws a progress
- * ring around the brand leaf, and fades in and out rather than popping, so the
+ * against live evidence databases). It narrates the pipeline, spins an arc
+ * around the brand leaf, and fades in and out rather than popping, so the
  * hand-off to the results underneath feels deliberate.
  *
- * The backend reports no progress, so the ring eases asymptotically toward
- * a ceiling (see `ringProgress`) and only completes once loading actually finishes.
+ * The backend reports no progress, so the ring is an indeterminate spinner
+ * rather than a fill that would have to guess how far along the lookup is.
  */
 
 const RING_RADIUS = 54;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+/** The spinning arc covers a third of the ring. */
+const ARC_LENGTH = RING_CIRCUMFERENCE / 3;
 
 const BRAND_DARK = "#2D6A4F";
 const BRAND_LIGHT = "#52B788";
@@ -83,7 +84,6 @@ const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
 
   if (!mounted) return null;
 
-  const progress = leaving ? 100 : ringProgress(elapsed);
   const index = messageIndex(elapsed);
   const message = STATUS_MESSAGES[index];
 
@@ -121,7 +121,7 @@ const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
 
       <div className="relative flex min-h-full flex-col items-center px-4">
         <div className="flex flex-1 flex-col items-center justify-center py-10">
-          {/* Leaf + progress ring */}
+          {/* Leaf + spinning ring */}
           <div className="relative h-36 w-36 sm:h-48 sm:w-48">
             <span
               className="absolute inset-4 rounded-full blur-2xl motion-safe:animate-leaf-breathe"
@@ -130,7 +130,8 @@ const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
             />
             <svg
               viewBox="0 0 120 120"
-              className="absolute inset-0 h-full w-full -rotate-90"
+              data-testid="premium-loader-ring"
+              className="absolute inset-0 h-full w-full motion-safe:animate-ring-spin"
               aria-hidden="true"
             >
               <defs>
@@ -161,9 +162,7 @@ const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
                 stroke="url(#premium-loader-ring)"
                 strokeWidth="4"
                 strokeLinecap="round"
-                strokeDasharray={RING_CIRCUMFERENCE}
-                strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress / 100)}
-                className="transition-[stroke-dashoffset] duration-700 ease-out"
+                strokeDasharray={`${ARC_LENGTH} ${RING_CIRCUMFERENCE}`}
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">

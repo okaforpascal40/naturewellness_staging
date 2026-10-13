@@ -18,7 +18,7 @@ export interface HealthSummaryInput {
 }
 
 /** Bumped when the prompt or response shape changes, to invalidate old entries. */
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_PREFIX = `nw:summary:${CACHE_VERSION}:`;
 
 const cacheKey = (input: HealthSummaryInput): string =>

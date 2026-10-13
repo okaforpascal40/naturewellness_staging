@@ -513,7 +513,7 @@ const Recommendations = () => {
                               <div className="h-4 w-[68%] animate-pulse rounded bg-muted" />
                             </div>
                           ) : (
-                            <p className="mt-3 text-base leading-relaxed text-foreground/90">
+                            <p className="mt-3 whitespace-pre-line text-base leading-relaxed text-foreground/90">
                               {summary}
                             </p>
                           )}
