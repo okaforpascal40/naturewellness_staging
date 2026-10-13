@@ -14,6 +14,7 @@ import {
   searchOpenTargetsDiseases,
   type OpenTargetsDisease,
 } from "@/lib/api";
+import { FROM_SEARCH_NAV, conditionPath } from "@/lib/condition-nav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,10 +69,6 @@ const PLANT_CHIPS = [
 
 /** Path of the results page for a plant or food. */
 const plantPath = (name: string): string => `/plant/${encodeURIComponent(name)}`;
-
-/** Path of the results page for a chosen condition. */
-const conditionPath = (d: Pick<OpenTargetsDisease, "id" | "name">): string =>
-  `/conditions/${d.id}?name=${encodeURIComponent(d.name)}`;
 
 const Index = () => {
   const navigate = useNavigate();
@@ -149,7 +146,7 @@ const Index = () => {
   // there rather than making them confirm with a second button.
   const handleSelect = (d: OpenTargetsDisease) => {
     setOtOpen(false);
-    navigate(conditionPath(d));
+    navigate(conditionPath(d.id, d.name), FROM_SEARCH_NAV);
   };
 
   const handleSelectPlant = (name: string) => {

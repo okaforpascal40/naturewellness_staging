@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Search } from "lucide-react";
 import { DISEASE_MAP, searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
+import { FROM_SEARCH_STATE, FROM_SEARCH_NAV, conditionPath } from "@/lib/condition-nav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,8 +45,13 @@ const Conditions = () => {
       try {
         const results = await searchOpenTargetsDiseases(q, controller.signal);
         setOtResults(results);
-      } catch (e: any) {
-        if (e.name !== "AbortError") setOtError("Could not load suggestions.");
+      } catch (e: unknown) {
+        const aborted =
+          typeof e === "object" && e !== null && (e as { name?: unknown }).name === "AbortError";
+        if (!aborted) {
+          console.error("Disease suggestions failed:", e);
+          setOtError("Could not load suggestions.");
+        }
       } finally {
         setOtLoading(false);
       }
@@ -69,7 +75,7 @@ const Conditions = () => {
   const handleSelectDisease = (d: OpenTargetsDisease) => {
     setOtOpen(false);
     setSearch("");
-    navigate(`/conditions/${d.id}?name=${encodeURIComponent(d.name)}`);
+    navigate(conditionPath(d.id, d.name), FROM_SEARCH_NAV);
   };
 
   const filtered = DISEASE_MAP.filter((c) => {
@@ -166,7 +172,7 @@ const Conditions = () => {
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {filtered.map((condition) => (
-          <Link key={condition.id} to={`/conditions/${condition.id}`}>
+          <Link key={condition.id} to={conditionPath(condition.id)} state={FROM_SEARCH_STATE}>
             <Card className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-primary/10 h-full">
               <CardContent className="p-6 flex flex-col h-full">
                 <Badge

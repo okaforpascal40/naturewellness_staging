@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -57,6 +57,7 @@ import {
   uniquePmidCount,
 } from "@/lib/citations";
 import { generateHealthSummary } from "@/lib/ai-summary";
+import { isFromSearch } from "@/lib/condition-nav";
 import {
   keggPathwayUrl,
   openExternal,
@@ -69,6 +70,7 @@ import PremiumLoader from "@/components/PremiumLoader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Mode = "academic" | "private";
@@ -93,6 +95,7 @@ const Recommendations = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [mode, setMode] = useState<Mode>("academic");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -129,6 +132,36 @@ const Recommendations = () => {
     retry: 1,
     staleTime: 5 * 60 * 1000,
   });
+
+  /*
+   * The full-screen loader is reserved for a lookup the user just asked for:
+   * picking a condition in the app (router state `fromSearch`) or pressing
+   * Try Again. A cold open of this URL (tab restore, bookmark, shared link,
+   * PWA resume) starts with an empty query cache, so it gets an inline
+   * loading state instead. Tracked per condition so moving to another one
+   * without a fresh selection doesn't inherit the flag.
+   */
+  const fromSearch = isFromSearch(location.state);
+  const [userStartedFor, setUserStartedFor] = useState<string | undefined>(() =>
+    fromSearch ? disease?.mondoId : undefined,
+  );
+  const userStarted = !!disease && userStartedFor === disease.mondoId;
+
+  // Consume the marker straight away: the flag now lives in component state,
+  // and clearing history state means a reload, Back or Forward onto this entry
+  // is a cold open rather than a replay of the overlay. Once cleared,
+  // `fromSearch` is false, so this cannot loop.
+  const { pathname, search } = location;
+  useEffect(() => {
+    if (!fromSearch) return;
+    setUserStartedFor(disease?.mondoId);
+    navigate(pathname + search, { replace: true, state: null });
+  }, [fromSearch, disease?.mondoId, navigate, pathname, search]);
+
+  const handleRetry = () => {
+    setUserStartedFor(disease?.mondoId);
+    void refetch();
+  };
 
   const recommendations: Recommendation[] = useMemo(
     () => data?.recommendations ?? [],
@@ -432,8 +465,52 @@ const Recommendations = () => {
         )}
 
         {/* ============================ LOADING ============================ */}
-        {/* Also covers "Try Again" after an error, where isLoading stays false. */}
-        {disease && <PremiumLoader visible={isFetching && !data} />}
+        {/* Kept mounted so hiding it runs the fade-out. Also covers "Try Again"
+            after an error, where isLoading stays false. */}
+        {disease && <PremiumLoader visible={userStarted && isFetching && !data} />}
+
+        {/* Cold open: load in place rather than taking over the screen. */}
+        {disease && !userStarted && isFetching && !data && (
+          <div role="status" aria-live="polite" data-testid="inline-loader" className="space-y-6">
+            <p className="flex items-start gap-2 text-sm text-muted-foreground">
+              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden="true" />
+              {/* One flex item, so the sentence wraps as text on narrow screens. */}
+              <span>
+                Loading evidence for{" "}
+                <span className="font-medium capitalize text-foreground">{disease.name}</span>… this
+                can take 30–60 seconds.
+              </span>
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-hidden="true">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 shadow-sm"
+                >
+                  <Skeleton className="h-9 w-9 rounded-xl" />
+                  <span className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-10" />
+                    <Skeleton className="h-3 w-16" />
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3" aria-hidden="true">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm"
+                >
+                  <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+                  <span className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ============================ ERROR ============================ */}
         {disease && isError && !isFetching && (
@@ -443,7 +520,7 @@ const Recommendations = () => {
             <p className="text-sm text-muted-foreground">
               {(error as Error)?.message || "An unexpected error occurred."}
             </p>
-            <Button onClick={() => refetch()}>Try Again</Button>
+            <Button onClick={handleRetry}>Try Again</Button>
           </div>
         )}
 

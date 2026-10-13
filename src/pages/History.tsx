@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import { clearHistory, getHistory, type StoredEntry } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import StoredEntryCard from "@/components/StoredEntryCard";
+import { FROM_SEARCH_NAV, conditionPath } from "@/lib/condition-nav";
 
 const History = () => {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<StoredEntry[]>(() => getHistory());
 
   const openEntry = (entry: StoredEntry) => {
-    navigate(`/conditions/${entry.id}?name=${encodeURIComponent(entry.name)}`);
+    navigate(conditionPath(entry.id, entry.name), FROM_SEARCH_NAV);
   };
 
   const handleClear = () => {

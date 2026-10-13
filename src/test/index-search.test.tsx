@@ -18,7 +18,12 @@ const DIABETES = {
 
 const Results = () => {
   const location = useLocation();
-  return <div data-testid="results">{location.pathname + location.search}</div>;
+  return (
+    <>
+      <div data-testid="results">{location.pathname + location.search}</div>
+      <output data-testid="results-state">{JSON.stringify(location.state)}</output>
+    </>
+  );
 };
 
 const renderIndex = () =>
@@ -49,6 +54,8 @@ describe("disease search on the home page", () => {
     expect(screen.getByTestId("results")).toHaveTextContent(
       `/conditions/${DIABETES.id}?name=type%202%20diabetes%20mellitus`,
     );
+    // Marks the visit as user-initiated so the results page shows its full-screen loader.
+    expect(screen.getByTestId("results-state")).toHaveTextContent('{"fromSearch":true}');
   });
 
   it("offers Get Recommendations only once something is typed", async () => {
@@ -82,5 +89,6 @@ describe("disease search on the home page", () => {
     fireEvent.click(screen.getByRole("button", { name: /get recommendations/i }));
 
     expect(screen.getByTestId("results")).toHaveTextContent(`/conditions/${DIABETES.id}`);
+    expect(screen.getByTestId("results-state")).toHaveTextContent('{"fromSearch":true}');
   });
 });
