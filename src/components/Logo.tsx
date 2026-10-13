@@ -64,7 +64,7 @@ const Logo = () => {
           textAlign: 'center' as const,
           marginTop: '1px'
         }}>
-          Ezek 47:12
+          Ezek 47:1-12
         </span>
 
         {/* Branding kicker */}
