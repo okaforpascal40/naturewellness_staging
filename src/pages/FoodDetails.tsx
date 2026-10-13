@@ -1,7 +1,7 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { requireSupabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,7 @@ const FoodDetails = () => {
   const { data: food, isLoading: loadingFood } = useQuery({
     queryKey: ["food", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await requireSupabase()
         .from("foods")
         .select("*")
         .eq("id", id!)
@@ -37,7 +37,7 @@ const FoodDetails = () => {
   const { data: links, isLoading: loadingLinks } = useQuery({
     queryKey: ["food_links_by_food", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await requireSupabase()
         .from("food_condition_links")
         .select("*, health_conditions(*)")
         .eq("food_id", id!)
@@ -52,7 +52,7 @@ const FoodDetails = () => {
   const { data: queryCondition } = useQuery({
     queryKey: ["condition_name", queryConditionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await requireSupabase()
         .from("health_conditions")
         .select("id, name")
         .eq("id", queryConditionId!)

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { requireSupabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +53,7 @@ const Admin = () => {
   const { data: foods } = useQuery({
     queryKey: ["admin_foods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("foods").select("id, name").order("name");
+      const { data, error } = await requireSupabase().from("foods").select("id, name").order("name");
       if (error) throw error;
       return data;
     },
@@ -63,7 +63,7 @@ const Admin = () => {
   const { data: conditions } = useQuery({
     queryKey: ["admin_conditions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("health_conditions").select("id, name").order("name");
+      const { data, error } = await requireSupabase().from("health_conditions").select("id, name").order("name");
       if (error) throw error;
       return data;
     },
@@ -73,7 +73,7 @@ const Admin = () => {
   const { data: links } = useQuery({
     queryKey: ["admin_links"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await requireSupabase()
         .from("food_condition_links")
         .select("*, foods(name), health_conditions(name)")
         .order("created_at", { ascending: false });
@@ -87,7 +87,7 @@ const Admin = () => {
 
   const insertMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("food_condition_links").insert({
+      const { error } = await requireSupabase().from("food_condition_links").insert({
         food_id: form.food_id,
         condition_id: form.condition_id,
         evidence_level: form.evidence_level,
@@ -104,14 +104,14 @@ const Admin = () => {
       setForm({ food_id: "", condition_id: "", evidence_level: "emerging", mechanism: "", key_compounds: "", layer: "health-safe", approved_for_public: false });
       toast({ title: "Recommendation added" });
     },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("food_condition_links").delete().eq("id", id);
+      const { error } = await requireSupabase().from("food_condition_links").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -133,7 +133,7 @@ const Admin = () => {
 
     setGeneratingMechanism(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-mechanism", {
+      const { data, error } = await requireSupabase().functions.invoke("generate-mechanism", {
         body: { food: foodName, compound: firstCompound, condition: conditionName },
       });
 
@@ -142,9 +142,9 @@ const Admin = () => {
 
       setForm((prev) => ({ ...prev, mechanism: data.mechanism }));
       toast({ title: "Mechanism generated" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Generate mechanism error:", err);
-      toast({ title: "Generation failed", description: err.message, variant: "destructive" });
+      toast({ title: "Generation failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setGeneratingMechanism(false);
     }
@@ -160,7 +160,7 @@ const Admin = () => {
     setEnriching(true);
     try {
       const searchTerm = enrichSearchTerm.trim() || food.name;
-      const { data, error } = await supabase.functions.invoke("enrich-food", {
+      const { data, error } = await requireSupabase().functions.invoke("enrich-food", {
         body: { foodId: food.id, foodName: food.name, searchTerm },
       });
 
@@ -177,9 +177,9 @@ const Admin = () => {
       }
 
       queryClient.invalidateQueries({ queryKey: ["admin_foods"] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Enrich food error:", err);
-      toast({ title: "Enrichment failed", description: err.message, variant: "destructive" });
+      toast({ title: "Enrichment failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setEnriching(false);
     }
@@ -425,8 +425,8 @@ const Admin = () => {
             </TableHeader>
             <TableBody>
               {links?.map((link) => {
-                const food = link.foods as any;
-                const cond = link.health_conditions as any;
+                const food = link.foods as { name?: string } | null;
+                const cond = link.health_conditions as { name?: string } | null;
                 return (
                   <TableRow key={link.id}>
                     <TableCell className="font-medium">{food?.name}</TableCell>

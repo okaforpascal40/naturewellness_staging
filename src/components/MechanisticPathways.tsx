@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { requireSupabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -42,7 +42,7 @@ const MechanisticPathways = ({
       if (conditionIds.length === 0) return [];
 
       // Get gene-disease associations for these conditions
-      const { data: geneLinks, error: glError } = await supabase
+      const { data: geneLinks, error: glError } = await requireSupabase()
         .from("gene_disease_associations")
         .select("gene_id, condition_id")
         .in("condition_id", conditionIds);
@@ -53,8 +53,8 @@ const MechanisticPathways = ({
 
       // Fetch genes and gene-pathway associations in parallel
       const [genesRes, gpaRes] = await Promise.all([
-        supabase.from("genes").select("*").in("id", geneIds),
-        supabase
+        requireSupabase().from("genes").select("*").in("id", geneIds),
+        requireSupabase()
           .from("gene_pathway_associations")
           .select("gene_id, pathway_id")
           .in("gene_id", geneIds),
@@ -68,7 +68,7 @@ const MechanisticPathways = ({
       const pathwayIds = [...new Set(gpaLinks.map((g) => g.pathway_id))];
       let pathways: PathwayRow[] = [];
       if (pathwayIds.length > 0) {
-        const { data, error } = await supabase
+        const { data, error } = await requireSupabase()
           .from("pathways")
           .select("*")
           .in("id", pathwayIds);
