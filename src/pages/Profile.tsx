@@ -15,6 +15,15 @@ import {
   type Profile as ProfileData,
   type SearchMode,
 } from "@/lib/storage";
+import {
+  authEnabled,
+  avatarUrlOf,
+  displayNameOf,
+  initialsOf,
+  useUser,
+} from "@/lib/supabase";
+import { GoogleSignInButton } from "@/components/AuthButton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,17 +39,9 @@ import {
 
 const APP_VERSION = "NatureWellness 47:12 v1.0.0";
 
-const initialsOf = (name: string): string =>
-  name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-
 const Profile = () => {
   const [profile, setProfile] = useState<ProfileData>(() => getProfile());
+  const { user, loading } = useUser();
 
   // Persist a patch and reflect it in local state.
   const update = (patch: Partial<ProfileData>) => {
@@ -48,7 +49,15 @@ const Profile = () => {
     saveProfile(patch);
   };
 
-  const initials = initialsOf(profile.name);
+  // Signed in: identity comes from the Google account, not localStorage.
+  // Until the session resolves we don't know which identity applies, so show
+  // neither (a signed-in user would otherwise see, and could edit, local fields).
+  const identityPending = authEnabled && loading;
+  const googleName = user ? displayNameOf(user) : "";
+  const googleAvatar = user ? avatarUrlOf(user) : null;
+  const displayName = identityPending ? "" : user ? googleName : profile.name;
+  const displayEmail = identityPending ? "" : user ? user.email ?? "" : profile.email;
+  const initials = initialsOf(displayName);
 
   const handleShare = async () => {
     const shareData = {
@@ -83,48 +92,101 @@ const Profile = () => {
         {/* ---------------- Identity ---------------- */}
         <Card className="rounded-3xl border-border/70 p-6 shadow-sm">
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-              {initials ? (
-                <span className="text-2xl font-bold">{initials}</span>
-              ) : (
-                <Leaf className="h-9 w-9" />
+            <Avatar className="h-20 w-20 shadow-sm">
+              {googleAvatar && (
+                <AvatarImage src={googleAvatar} alt="" referrerPolicy="no-referrer" />
               )}
-            </div>
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {initials ? (
+                  <span className="text-2xl font-bold">{initials}</span>
+                ) : (
+                  <Leaf className="h-9 w-9" />
+                )}
+              </AvatarFallback>
+            </Avatar>
             <p className="mt-3 text-lg font-semibold text-foreground">
-              {profile.name || "Your Name"}
+              {identityPending ? (
+                <span className="inline-block h-5 w-32 animate-pulse rounded bg-muted align-middle" />
+              ) : (
+                displayName || "Your Name"
+              )}
             </p>
-            {profile.email && (
-              <p className="text-sm text-muted-foreground">{profile.email}</p>
+            {displayEmail && (
+              <p className="text-sm text-muted-foreground">{displayEmail}</p>
             )}
           </div>
 
-          <div className="mt-6 space-y-4">
-            <div>
-              <Label htmlFor="name" className="mb-1.5 block text-sm font-medium">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={profile.name}
-                placeholder="Enter your name"
-                onChange={(e) => update({ name: e.target.value })}
-                className="h-12 rounded-2xl"
-              />
+          {identityPending ? (
+            <div className="mt-6 space-y-4" aria-busy="true" aria-label="Loading account">
+              <div className="h-12 animate-pulse rounded-2xl bg-muted" />
+              <div className="h-12 animate-pulse rounded-2xl bg-muted" />
             </div>
-            <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={profile.email}
-                placeholder="you@example.com"
-                onChange={(e) => update({ email: e.target.value })}
-                className="h-12 rounded-2xl"
-              />
+          ) : user ? (
+            <div className="mt-6 space-y-4">
+              <div>
+                <Label htmlFor="name" className="mb-1.5 block text-sm font-medium">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  value={googleName}
+                  readOnly
+                  className="h-12 rounded-2xl bg-muted/40"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={user.email ?? ""}
+                  readOnly
+                  className="h-12 rounded-2xl bg-muted/40"
+                />
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                Managed by your Google account
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              <div>
+                <Label htmlFor="name" className="mb-1.5 block text-sm font-medium">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  value={profile.name}
+                  placeholder="Enter your name"
+                  onChange={(e) => update({ name: e.target.value })}
+                  className="h-12 rounded-2xl"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={profile.email}
+                  placeholder="you@example.com"
+                  onChange={(e) => update({ email: e.target.value })}
+                  className="h-12 rounded-2xl"
+                />
+              </div>
+              {authEnabled && (
+                <div className="flex flex-col items-center gap-2 border-t border-border/60 pt-4 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Sign in to sync your history and favorites across devices.
+                  </p>
+                  <GoogleSignInButton />
+                </div>
+              )}
+            </div>
+          )}
         </Card>
 
         {/* ---------------- Settings ---------------- */}
