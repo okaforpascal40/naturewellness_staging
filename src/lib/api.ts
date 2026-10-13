@@ -259,3 +259,87 @@ export async function runAutomation(mondoId: string, maxGenes = 10): Promise<Aut
     clearTimeout(timeout);
   }
 }
+
+/* ------------------------- Find by Plant/Food ------------------------- */
+
+/** A non-2xx response, with its status kept so callers can tell a 404 apart. */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export interface PlantConditionEvidence {
+  condition_name: string;
+  /** Open Targets id ("EFO_0000685", "MONDO_0005148"); null when unknown. */
+  condition_id: string | null;
+  gene_targets: string[];
+  evidence_grade: "A" | "B" | "C" | string;
+  publication_count: number;
+  interaction_type: string;
+  /** "PMID 12345678" strings — read them with `@/lib/citations`. */
+  sample_citations: string[];
+}
+
+export interface PlantSearchResponse {
+  plant_name: string;
+  scientific_name: string | null;
+  phytochemicals: string[];
+  nutrient_content: string | null;
+  /** Top conditions, strongest evidence first. */
+  conditions_with_evidence: PlantConditionEvidence[];
+  total_conditions: number;
+  total_publications: number;
+  recommendation_source: string;
+}
+
+/** Shortest query the suggestions endpoint will match on. */
+export const PLANT_SUGGESTION_MIN_CHARS = 2;
+
+/**
+ * Conditions a plant's phytochemicals interact with. Rejects with an
+ * {@link ApiError} carrying status 404 when the plant isn't in the database.
+ */
+export async function searchPlant(plantName: string, signal?: AbortSignal): Promise<PlantSearchResponse> {
+  // Our own timeout, chained to the caller's signal so react-query can still
+  // cancel a search the user has navigated away from.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort);
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/plant/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plant_name: plantName }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new ApiError(res.status, `Plant search failed (${res.status}): ${text}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError" && !signal?.aborted) {
+      throw new Error("Plant search timed out. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
+/** Plant names matching a partial query, for the home-page autocomplete. */
+export async function getPlantSuggestions(query: string, signal?: AbortSignal): Promise<string[]> {
+  const q = query.trim();
+  if (q.length < PLANT_SUGGESTION_MIN_CHARS) return [];
+  const res = await fetch(`${API_BASE}/api/v1/plant/suggestions?q=${encodeURIComponent(q)}`, { signal });
+  if (!res.ok) throw new ApiError(res.status, `Plant suggestions failed: ${res.status}`);
+  const json: unknown = await res.json();
+  return Array.isArray(json) ? json.filter((s): s is string => typeof s === "string") : [];
+}

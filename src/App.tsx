@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Conditions from "./pages/Conditions";
 import Recommendations from "./pages/Recommendations";
+import PlantResults from "./pages/PlantResults";
 import CamScan from "./pages/CamScan";
 import History from "./pages/History";
 import Favorites from "./pages/Favorites";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/conditions" element={<Conditions />} />
             <Route path="/conditions/:id" element={<Recommendations />} />
+            <Route path="/plant/:plantName" element={<PlantResults />} />
             <Route path="/camscan" element={<CamScan />} />
             <Route path="/history" element={<History />} />
             <Route path="/favorites" element={<Favorites />} />

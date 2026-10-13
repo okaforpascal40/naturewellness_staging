@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   FADE_MS,
+  MESSAGE_INTERVAL_MS,
   STATUS_MESSAGES,
   TICK_MS,
-  messageIndex,
 } from "@/lib/premium-loader";
 
 /**
@@ -38,9 +38,11 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
 interface PremiumLoaderProps {
   /** While true the overlay is shown; flipping to false fades it out. */
   visible: boolean;
+  /** Narration to cycle through; defaults to the condition-lookup pipeline. */
+  messages?: readonly string[];
 }
 
-const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
+const PremiumLoader = ({ visible, messages = STATUS_MESSAGES }: PremiumLoaderProps) => {
   const [mounted, setMounted] = useState(visible);
   const [leaving, setLeaving] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -84,8 +86,9 @@ const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
 
   if (!mounted) return null;
 
-  const index = messageIndex(elapsed);
-  const message = STATUS_MESSAGES[index];
+  // Same wrap-around as `messageIndex`, but over whichever list was passed in.
+  const index = Math.floor(elapsed / MESSAGE_INTERVAL_MS) % messages.length;
+  const message = messages[index];
 
   // Portalled to <body> so it sits outside #root, which is made inert above.
   return createPortal(
@@ -255,7 +258,7 @@ const PremiumLoader = ({ visible }: PremiumLoaderProps) => {
 
           {/* Step dots */}
           <div className="mt-4 flex items-center gap-1.5" aria-hidden="true">
-            {STATUS_MESSAGES.map((m, i) => (
+            {messages.map((m, i) => (
               <span
                 key={m}
                 className="h-1.5 rounded-full transition-all duration-500"

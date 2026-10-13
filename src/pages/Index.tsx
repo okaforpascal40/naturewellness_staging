@@ -9,11 +9,22 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { searchOpenTargetsDiseases, type OpenTargetsDisease } from "@/lib/api";
+import {
+  getPlantSuggestions,
+  searchOpenTargetsDiseases,
+  type OpenTargetsDisease,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type SearchMode = "condition" | "plant";
+
+const SEARCH_MODES: { value: SearchMode; label: string }[] = [
+  { value: "condition", label: "🔬 Find by Condition" },
+  { value: "plant", label: "🌿 Find by Plant/Food" },
+];
 
 type SearchType = "disease" | "symptom" | "goal" | "organ";
 
@@ -42,6 +53,22 @@ const EXAMPLE_CHIPS: { label: string; query: string }[] = [
   { label: "Healthy Heart", query: "cardiovascular disease" },
 ];
 
+const PLANT_PLACEHOLDER = "Type a fruit, vegetable or plant...";
+
+const PLANT_CHIPS = [
+  "Turmeric",
+  "Blueberry",
+  "Garlic",
+  "Broccoli",
+  "Green Tea",
+  "Ginger",
+  "Spinach",
+  "Moringa",
+] as const;
+
+/** Path of the results page for a plant or food. */
+const plantPath = (name: string): string => `/plant/${encodeURIComponent(name)}`;
+
 /** Path of the results page for a chosen condition. */
 const conditionPath = (d: Pick<OpenTargetsDisease, "id" | "name">): string =>
   `/conditions/${d.id}?name=${encodeURIComponent(d.name)}`;
@@ -49,12 +76,16 @@ const conditionPath = (d: Pick<OpenTargetsDisease, "id" | "name">): string =>
 const Index = () => {
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState<SearchMode>("condition");
   const [searchType, setSearchType] = useState<SearchType>("disease");
   const [query, setQuery] = useState("");
   const [listening, setListening] = useState(false);
 
-  // Open Targets autocomplete (same logic as the Conditions search)
+  // Autocomplete: Open Targets diseases in condition mode (same logic as the
+  // Conditions search), our own plant names in plant mode. Loading, error and
+  // open state are shared because only one mode's dropdown is ever shown.
   const [otResults, setOtResults] = useState<OpenTargetsDisease[]>([]);
+  const [plantResults, setPlantResults] = useState<string[]>([]);
   const [otLoading, setOtLoading] = useState(false);
   const [otOpen, setOtOpen] = useState(false);
   const [otError, setOtError] = useState<string | null>(null);
@@ -67,6 +98,7 @@ const Index = () => {
     const q = query.trim();
     if (q.length < 2) {
       setOtResults([]);
+      setPlantResults([]);
       setOtLoading(false);
       setOtError(null);
       return;
@@ -75,12 +107,18 @@ const Index = () => {
     // Drop the previous query's results up front: selecting navigates straight
     // away, so Enter must never land on a match for text the user has replaced.
     setOtResults([]);
+    setPlantResults([]);
     setOtLoading(true);
     setOtError(null);
     const t = setTimeout(async () => {
       try {
-        const results = await searchOpenTargetsDiseases(q, controller.signal);
-        if (!controller.signal.aborted) setOtResults(results);
+        if (mode === "plant") {
+          const names = await getPlantSuggestions(q, controller.signal);
+          if (!controller.signal.aborted) setPlantResults(names);
+        } else {
+          const results = await searchOpenTargetsDiseases(q, controller.signal);
+          if (!controller.signal.aborted) setOtResults(results);
+        }
       } catch (e: unknown) {
         if (!controller.signal.aborted) setOtError("Could not load suggestions.");
       } finally {
@@ -92,7 +130,7 @@ const Index = () => {
       controller.abort();
       clearTimeout(t);
     };
-  }, [query]);
+  }, [query, mode]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -114,7 +152,49 @@ const Index = () => {
     navigate(conditionPath(d));
   };
 
+  const handleSelectPlant = (name: string) => {
+    setOtOpen(false);
+    navigate(plantPath(name));
+  };
+
+  // Each mode searches a different catalogue, so carry nothing across.
+  const handleModeChange = (next: SearchMode) => {
+    if (next === mode) return;
+    setMode(next);
+    setQuery("");
+    setOtResults([]);
+    setPlantResults([]);
+    setOtError(null);
+    setOtOpen(false);
+  };
+
+  const handlePlantSearch = () => {
+    const name = query.trim();
+    // Same stale-result guard as conditions: while the current query's
+    // suggestions are pending the top match is unknown, so wait for them.
+    if (otLoading) {
+      setOtOpen(true);
+      inputRef.current?.focus();
+      return;
+    }
+    if (plantResults.length > 0) {
+      handleSelectPlant(plantResults[0]);
+      return;
+    }
+    if (name) {
+      handleSelectPlant(name);
+    } else {
+      toast("Type a plant or food to search", {
+        description: "For example “Turmeric” or “Blueberry”.",
+      });
+    }
+  };
+
   const handleSearch = () => {
+    if (mode === "plant") {
+      handlePlantSearch();
+      return;
+    }
     // Only auto-select once results for the *current* query have settled, so a
     // pending search can't navigate to a stale result from a previous query.
     if (!otLoading && otResults.length > 0) {
@@ -210,6 +290,7 @@ const Index = () => {
 
   // Typed but not yet picked from the dropdown: offer to go to the best match.
   const hasQuery = query.trim().length >= 2;
+  const isPlant = mode === "plant";
 
   return (
     <div className="min-h-[calc(100vh-8rem)] pb-24 lg:pb-12">
@@ -226,20 +307,45 @@ const Index = () => {
               </p>
             </div>
 
-            {/* Search type tabs */}
-            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as SearchType)} className="mb-4">
-              <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/70 p-1">
-                {SEARCH_TYPES.map((t) => (
-                  <TabsTrigger
-                    key={t.value}
-                    value={t.value}
-                    className="flex-1 rounded-lg px-3 py-1.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-sm"
-                  >
-                    {t.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            {/* Search mode: by condition or by plant/food */}
+            <div
+              role="group"
+              aria-label="Search mode"
+              className="mb-4 grid grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1"
+            >
+              {SEARCH_MODES.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  aria-pressed={mode === m.value}
+                  onClick={() => handleModeChange(m.value)}
+                  className={`rounded-xl px-2 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm ${
+                    mode === m.value
+                      ? "bg-background text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search type tabs (condition mode only) */}
+            {!isPlant && (
+              <Tabs value={searchType} onValueChange={(v) => setSearchType(v as SearchType)} className="mb-4">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/70 p-1">
+                  {SEARCH_TYPES.map((t) => (
+                    <TabsTrigger
+                      key={t.value}
+                      value={t.value}
+                      className="flex-1 rounded-lg px-3 py-1.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-sm"
+                    >
+                      {t.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
 
             {/* Search input + autocomplete */}
             <div ref={wrapperRef} className="relative">
@@ -247,7 +353,7 @@ const Index = () => {
               <Input
                 ref={inputRef}
                 value={query}
-                placeholder={PLACEHOLDERS[searchType]}
+                placeholder={isPlant ? PLANT_PLACEHOLDER : PLACEHOLDERS[searchType]}
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setOtOpen(true);
@@ -265,17 +371,37 @@ const Index = () => {
                 <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-border bg-popover shadow-xl">
                   {otLoading && (
                     <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Searching conditions…
+                      <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                      {isPlant ? "Searching plants…" : "Searching conditions…"}
                     </div>
                   )}
                   {!otLoading && otError && (
                     <div className="px-4 py-3 text-sm text-destructive">{otError}</div>
                   )}
-                  {!otLoading && !otError && otResults.length === 0 && (
+                  {!otLoading && !otError && isPlant && plantResults.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                      No matching plants. Press Enter to search for “{query.trim()}”.
+                    </div>
+                  )}
+                  {!otLoading &&
+                    !otError &&
+                    isPlant &&
+                    plantResults.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => handleSelectPlant(name)}
+                        className="block w-full border-b border-border px-4 py-2.5 text-left text-sm font-medium capitalize text-foreground transition-colors last:border-b-0 hover:bg-accent/15"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  {!otLoading && !otError && !isPlant && otResults.length === 0 && (
                     <div className="px-4 py-3 text-sm text-muted-foreground">No conditions found.</div>
                   )}
                   {!otLoading &&
                     !otError &&
+                    !isPlant &&
                     otResults.map((d) => (
                       <button
                         key={d.id}
@@ -297,16 +423,27 @@ const Index = () => {
 
             {/* Example chips */}
             <div className="mt-4 flex flex-wrap gap-2">
-              {EXAMPLE_CHIPS.map((chip) => (
-                <button
-                  key={chip.label}
-                  type="button"
-                  onClick={() => handleChip(chip.query)}
-                  className="rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-accent/15 hover:text-primary"
-                >
-                  {chip.label}
-                </button>
-              ))}
+              {isPlant
+                ? PLANT_CHIPS.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => handleSelectPlant(name)}
+                      className="rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-accent/15 hover:text-primary"
+                    >
+                      {name}
+                    </button>
+                  ))
+                : EXAMPLE_CHIPS.map((chip) => (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      onClick={() => handleChip(chip.query)}
+                      className="rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:bg-accent/15 hover:text-primary"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
             </div>
 
             {/* Actions */}
@@ -317,7 +454,8 @@ const Index = () => {
               >
                 {hasQuery ? (
                   <>
-                    Get Recommendations <ArrowRight className="h-5 w-5" />
+                    {isPlant ? "Explore Health Benefits" : "Get Recommendations"}{" "}
+                    <ArrowRight className="h-5 w-5" />
                   </>
                 ) : (
                   <>
@@ -356,8 +494,9 @@ const Index = () => {
                 Search to build your query
               </h2>
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Pick a condition on the left and we'll surface plant foods, nutrients and the genes
-                and pathways behind them.
+                {isPlant
+                  ? "Pick a plant or food on the left and we'll surface the health conditions its phytochemicals act on, graded by published evidence."
+                  : "Pick a condition on the left and we'll surface plant foods, nutrients and the genes and pathways behind them."}
               </p>
             </div>
         </div>
