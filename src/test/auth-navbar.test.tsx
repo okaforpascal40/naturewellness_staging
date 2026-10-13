@@ -99,28 +99,46 @@ describe("AuthButton", () => {
     );
   });
 
-  it("signed in: shows name + initials fallback, and signs out from the menu", async () => {
-    auth.state = { user: GOOGLE_USER, loading: false };
-    render(<AuthButton />);
+const renderSignedIn = (user: User = GOOGLE_USER) => {
+    auth.state = { user, loading: false };
+    return render(
+      <MemoryRouter>
+        <AuthButton />
+      </MemoryRouter>,
+    );
+  };
+
+  const openMenu = (name: RegExp) =>
+    fireEvent.keyDown(screen.getByRole("button", { name }), { key: "Enter" });
+
+  it("signed in: shows only the avatar in the navbar, no name text", () => {
+    renderSignedIn();
 
     expect(screen.queryByRole("button", { name: /sign in with google/i })).toBeNull();
-    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(screen.getByText("AL")).toBeInTheDocument(); // fallback until the image loads
+    expect(screen.getByText("AL")).toBeInTheDocument(); // initials until the photo loads
+    expect(screen.queryByText("Ada Lovelace")).toBeNull();
+    expect(screen.queryByText("ada@example.com")).toBeNull();
+  });
 
-    const trigger = screen.getByRole("button", { name: /account menu for ada lovelace/i });
-    fireEvent.keyDown(trigger, { key: "Enter" });
-    const item = await screen.findByRole("menuitem", { name: /sign out/i });
+  it("signed in: menu shows name, email, My Profile and a red Sign Out", async () => {
+    renderSignedIn();
+    openMenu(/account menu for ada lovelace/i);
+
+    const profile = await screen.findByRole("menuitem", { name: /my profile/i });
+    expect(profile).toHaveAttribute("href", "/profile");
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.getByText("ada@example.com")).toBeInTheDocument();
-    fireEvent.click(item);
+    expect(screen.getByRole("separator")).toBeInTheDocument();
+
+    const signOutItem = screen.getByRole("menuitem", { name: /sign out/i });
+    expect(signOutItem).toHaveClass("text-red-600");
+    fireEvent.click(signOutItem);
     await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1));
   });
 
-  it("falls back to the email when Google gives no name", () => {
-    auth.state = {
-      user: { ...GOOGLE_USER, user_metadata: {} } as unknown as User,
-      loading: false,
-    };
-    render(<AuthButton />);
-    expect(screen.getByText("ada@example.com")).toBeInTheDocument();
+  it("falls back to the email when Google gives no name", async () => {
+    renderSignedIn({ ...GOOGLE_USER, user_metadata: {} } as unknown as User);
+    openMenu(/account menu for ada@example.com/i);
+    expect(await screen.findByText("ada@example.com")).toBeInTheDocument();
   });
 });

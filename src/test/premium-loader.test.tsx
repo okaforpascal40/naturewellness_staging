@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PremiumLoader from "@/components/PremiumLoader";
@@ -97,5 +99,19 @@ describe("visibility", () => {
   it("shows the footnote", () => {
     render(<PremiumLoader visible />);
     expect(screen.getByText("Analyzing peer-reviewed literature")).toBeInTheDocument();
+  });
+});
+
+describe("brand mark", () => {
+  it("draws the favicon leaf, not the old gradient leaf", () => {
+    const favicon = readFileSync(resolve(__dirname, "../../public/favicon.svg"), "utf8");
+    const faviconPaths = [...favicon.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
+    render(<PremiumLoader visible />);
+
+    const loader = screen.getByTestId("premium-loader");
+    const paths = [...loader.querySelectorAll("path")].map((el) => el.getAttribute("d"));
+    expect(faviconPaths.length).toBeGreaterThan(0);
+    for (const d of faviconPaths) expect(paths).toContain(d);
+    expect(loader.querySelector("#premium-loader-leaf")).toBeNull();
   });
 });

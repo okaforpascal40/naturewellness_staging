@@ -117,13 +117,18 @@ const metaString = (user: User, key: string): string | null => {
 export const displayNameOf = (user: User): string =>
   metaString(user, "full_name") ?? metaString(user, "name") ?? user.email ?? "";
 
-/** First name for a greeting: first word of the Google name, else the email's local part. */
+const capitalize = (word: string): string =>
+  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+/**
+ * Name for a greeting: the LAST word of the Google name, since Google returns
+ * Nigerian names surname-first ("OGBONNA PASCAL OKAFOR" → "Okafor"); else the
+ * email's local part. Either way, capitalised with the rest lower-cased.
+ */
 export const firstNameOf = (user: User): string | null => {
   const fullName = metaString(user, "full_name") ?? metaString(user, "name");
-  const first = fullName?.split(/\s+/)[0];
-  if (first) return first;
-  const local = user.email?.split("@")[0]?.trim();
-  return local || null;
+  const word = fullName?.split(/\s+/).pop() || user.email?.split("@")[0]?.trim();
+  return word ? capitalize(word) : null;
 };
 
 export const avatarUrlOf = (user: User): string | null =>

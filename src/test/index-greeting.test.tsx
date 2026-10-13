@@ -40,11 +40,14 @@ describe("home greeting", () => {
     expect(screen.getByText("What would you like to explore today?")).toBeInTheDocument();
   });
 
-  it("greets a Google user by first name only", () => {
-    auth.state = { user: userWith({ email: "p@example.com", meta: { full_name: "Pascal Okafor" } }), loading: false };
+  it("greets a Google user by the last word of their name", () => {
+    auth.state = {
+      user: userWith({ email: "p@example.com", meta: { full_name: "OGBONNA PASCAL OKAFOR" } }),
+      loading: false,
+    };
     renderIndex();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Hello, Pascal 👋");
-    expect(screen.getByText("What would you like to explore today, Pascal?")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Hello, Okafor 👋");
+    expect(screen.getByText("What would you like to explore today, Okafor?")).toBeInTheDocument();
   });
 
   it("does not flash 'friend' while the session is loading", () => {
@@ -57,13 +60,18 @@ describe("home greeting", () => {
 });
 
 describe("firstNameOf", () => {
-  it("takes the first word of the Google full name", () => {
-    expect(firstNameOf(userWith({ meta: { full_name: "  Pascal   Okafor " } }))).toBe("Pascal");
+  it("takes the last word of the Google name, capitalised", () => {
+    expect(firstNameOf(userWith({ meta: { full_name: "OGBONNA PASCAL OKAFOR" } }))).toBe("Okafor");
+    expect(firstNameOf(userWith({ meta: { full_name: "  ogbonna   pascal " } }))).toBe("Pascal");
+  });
+
+  it("uses a single-word name as is", () => {
+    expect(firstNameOf(userWith({ meta: { full_name: "CHIOMA" } }))).toBe("Chioma");
   });
 
   it("falls back to the name claim, then the email's local part", () => {
-    expect(firstNameOf(userWith({ meta: { name: "Ada Lovelace" } }))).toBe("Ada");
-    expect(firstNameOf(userWith({ email: "sam@example.com" }))).toBe("sam");
+    expect(firstNameOf(userWith({ meta: { name: "Ada Lovelace" } }))).toBe("Lovelace");
+    expect(firstNameOf(userWith({ email: "sam@example.com" }))).toBe("Sam");
   });
 
   it("returns null when there is nothing to greet by", () => {

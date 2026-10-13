@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import LeafMark from "@/components/LeafMark";
 import {
   FADE_MS,
   MESSAGE_INTERVAL_MS,
@@ -10,8 +11,8 @@ import {
 /**
  * Full-screen overlay shown while a condition lookup runs (typically 30–60s
  * against live evidence databases). It narrates the pipeline, spins an arc
- * around the brand leaf, and fades in and out rather than popping, so the
- * hand-off to the results underneath feels deliberate.
+ * around the brand mark (the favicon leaf), and fades in and out rather than
+ * popping, so the hand-off to the results underneath feels deliberate.
  *
  * The backend reports no progress, so the ring is an indeterminate spinner
  * rather than a fill that would have to guess how far along the lookup is.
@@ -169,68 +170,9 @@ const PremiumLoader = ({ visible, messages = STATUS_MESSAGES }: PremiumLoaderPro
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <svg
-                viewBox="0 0 80 80"
-                className="h-20 w-20 motion-safe:animate-leaf-breathe sm:h-24 sm:w-24"
-                aria-hidden="true"
-              >
-                <defs>
-                  <linearGradient
-                    id="premium-loader-leaf"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="100%"
-                  >
-                    <stop offset="0%" stopColor={BRAND_LIGHT} />
-                    <stop offset="100%" stopColor={BRAND_DARK} />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M40 8 C40 8 65 22 65 44 C65 58 54 68 40 68 C26 68 15 58 15 44 C15 22 40 8 40 8 Z"
-                  fill="url(#premium-loader-leaf)"
-                />
-                <path
-                  d="M40 64 C40 64 40 20 40 10"
-                  stroke="#D8F3DC"
-                  strokeWidth="1.5"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.8"
-                />
-                <path
-                  d="M40 52 C33 48 24 46 18 44"
-                  stroke="#D8F3DC"
-                  strokeWidth="1"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.6"
-                />
-                <path
-                  d="M40 42 C33 38 25 36 19 33"
-                  stroke="#D8F3DC"
-                  strokeWidth="1"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.6"
-                />
-                <path
-                  d="M40 52 C47 48 56 46 62 44"
-                  stroke="#D8F3DC"
-                  strokeWidth="1"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.6"
-                />
-                <path
-                  d="M40 42 C47 38 55 36 61 33"
-                  stroke="#D8F3DC"
-                  strokeWidth="1"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.6"
-                />
-              </svg>
+              <LeafMark
+                className="h-20 w-20 drop-shadow-md motion-safe:animate-leaf-breathe sm:h-24 sm:w-24"
+              />
             </div>
           </div>
 

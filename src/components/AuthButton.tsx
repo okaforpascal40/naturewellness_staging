@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
+import { LogOut, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import {
   authEnabled,
@@ -78,7 +79,9 @@ export const GoogleSignInButton = ({ className }: { className?: string }) => {
   );
 };
 
-/** Navbar account control: Google sign-in when signed out, avatar menu when signed in. */
+/** Navbar account control: Google sign-in when signed out; when signed in, just the
+ *  avatar (photo, or initials on brand green), opening a menu with name, email,
+ *  My Profile and Sign Out. */
 const AuthButton = ({ className }: { className?: string }) => {
   const { user, loading } = useUser();
 
@@ -95,29 +98,38 @@ const AuthButton = ({ className }: { className?: string }) => {
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "flex max-w-[14rem] items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "rounded-full ring-offset-2 ring-offset-background transition-shadow hover:ring-2 hover:ring-[#2D6A4F]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           className,
+          // Only the avatar is clickable, even where the slot is full-width (mobile menu).
+          "w-fit",
         )}
         aria-label={`Account menu for ${name}`}
       >
-        <Avatar className="h-8 w-8">
+        <Avatar className="h-9 w-9 shadow-sm">
           {avatarUrl && <AvatarImage src={avatarUrl} alt="" referrerPolicy="no-referrer" />}
-          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
+          <AvatarFallback className="bg-[#2D6A4F] text-xs font-semibold text-white">
             {initialsOf(name)}
           </AvatarFallback>
         </Avatar>
-        <span className="truncate">{name}</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <p className="truncate text-sm font-medium">{name}</p>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-xl p-1.5">
+        <DropdownMenuLabel className="px-2.5 py-2 font-normal">
+          <p className="truncate text-sm font-semibold text-foreground">{name}</p>
           {user.email && user.email !== name && (
             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
           )}
         </DropdownMenuLabel>
+        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-lg">
+          <Link to="/profile">
+            <UserRound className="h-4 w-4" /> My Profile
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void signOut()} className="gap-2">
-          <LogOut className="h-4 w-4" /> Sign out
+        <DropdownMenuItem
+          onSelect={() => void signOut()}
+          className="cursor-pointer gap-2 rounded-lg text-red-600 focus:bg-red-50 focus:text-red-700"
+        >
+          <LogOut className="h-4 w-4" /> Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
