@@ -323,9 +323,11 @@ const CamScan = () => {
     try {
       result = await identifyPlant(imageDataUrl);
       setIdentification(result);
-      if (result.is_plant === false) {
-        toast("That doesn't look like a plant", {
-          description: "Try a clearer photo of a leaf, flower, fruit, or vegetable.",
+      // Any named match counts — fruits, tubers, seeds and dried foods often
+      // come back with a weak is_plant signal but a perfectly good species.
+      if (!result.plant_name) {
+        toast("We could not identify this plant or food item", {
+          description: "Try a clearer photo or search by name instead.",
         });
       }
     } catch (err) {
@@ -337,7 +339,7 @@ const CamScan = () => {
     }
 
     // The button promises benefits, so the associations load in the same tap.
-    if (result && result.is_plant !== false && result.plant_name) {
+    if (result?.plant_name) {
       await loadBenefits(result);
     }
   };
@@ -353,7 +355,7 @@ const CamScan = () => {
     setResultTab(unhealthy ? "health" : "plant");
   }, [identification]);
 
-  const isPlant = identification?.is_plant !== false;
+  const isPlant = Boolean(identification?.plant_name);
   const confidence = identification?.confidence ?? 0;
   const busy = identifying || loadingBenefits;
 
@@ -388,7 +390,8 @@ const CamScan = () => {
           {/* foreground/75, not muted-foreground: the green wash drops the
               muted token to ~4.4:1 here, under the AA floor for 16px copy. */}
           <p className="mx-auto mt-2 max-w-xl text-base leading-relaxed text-foreground/75">
-            Scan or upload a photo to identify a plant, fruit, or vegetable and explore
+            Scan or upload a photo to identify a plant, fruit, vegetable, tuber, seed, or
+            herb and explore
             its evidence-based health associations.
           </p>
         </div>
@@ -511,10 +514,10 @@ const CamScan = () => {
           <Card className="animate-slide-up mt-6 rounded-3xl border-destructive/30 bg-destructive/5 p-6 text-center shadow-sm">
             <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
             <h2 className="mt-3 text-lg font-semibold text-secondary">
-              We couldn't find a plant in that photo
+              We could not identify this plant or food item
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Try a clearer, well-lit photo of a single leaf, flower, fruit, or vegetable.
+              Try a clearer photo or search by name instead.
             </p>
             <Button className="mt-4 rounded-2xl" onClick={resetAll}>
               <ScanLine className="h-4 w-4" /> Try Again
