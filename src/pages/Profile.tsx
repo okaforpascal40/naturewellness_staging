@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
   ChevronRight,
   GraduationCap,
   Leaf,
+  Loader2,
   Share2,
   Star,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import {
   avatarUrlOf,
   displayNameOf,
   initialsOf,
+  supabase,
   useUser,
 } from "@/lib/supabase";
 import { GoogleSignInButton } from "@/components/AuthButton";
@@ -30,6 +33,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -39,9 +53,21 @@ import {
 
 const APP_VERSION = "NatureWellness 47:12 v1.0.0";
 
+/** Remove every app-owned localStorage key (all are prefixed `nw_`). */
+const clearAppStorage = (): void => {
+  try {
+    const keys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
+    keys.filter((k): k is string => !!k && k.startsWith("nw_")).forEach((k) => localStorage.removeItem(k));
+  } catch (err) {
+    console.error("profile: could not clear local data", err);
+  }
+};
+
 const Profile = () => {
   const [profile, setProfile] = useState<ProfileData>(() => getProfile());
   const { user, loading } = useUser();
+  const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
 
   // Persist a patch and reflect it in local state.
   const update = (patch: Partial<ProfileData>) => {
@@ -82,6 +108,35 @@ const Profile = () => {
         toast.error("Could not share", { description: (err as Error)?.message });
       }
     }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!supabase) {
+      toast.error("Could not delete your account", { description: "Sign-in is not configured" });
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke("delete-account");
+      if (error) throw error;
+    } catch (err) {
+      console.error("profile: account deletion failed", err);
+      toast.error("Could not delete your account", {
+        description: "Please try again, or email us for help.",
+      });
+      setDeleting(false);
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error("profile: sign-out after deletion failed", error);
+    } catch (err) {
+      console.error("profile: sign-out after deletion failed", err);
+    }
+    clearAppStorage();
+    setDeleting(false);
+    toast.success("Your account has been deleted");
+    navigate("/");
   };
 
   return (
@@ -183,6 +238,12 @@ const Profile = () => {
                     Sign in to sync your history and favorites across devices.
                   </p>
                   <GoogleSignInButton />
+                  <Link
+                    to="/privacy"
+                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
+                  >
+                    Privacy Policy
+                  </Link>
                 </div>
               )}
             </div>
@@ -293,23 +354,54 @@ const Profile = () => {
 
           <div className="mt-4 divide-y divide-border/60 border-t border-border/60">
             {[
-              { label: "Privacy Policy" },
-              { label: "Terms of Use" },
+              { label: "Privacy Policy", to: "/privacy" },
+              { label: "Terms of Service", to: "/terms" },
             ].map((row) => (
-              <button
-                key={row.label}
-                type="button"
-                onClick={() => toast(`${row.label} is coming soon`)}
+              <Link
+                key={row.to}
+                to={row.to}
                 className="flex w-full items-center justify-between py-3 text-sm font-medium text-foreground transition-colors hover:text-primary"
               >
                 {row.label}
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
+              </Link>
             ))}
           </div>
 
           <p className="mt-4 text-center text-xs text-muted-foreground">{APP_VERSION}</p>
         </Card>
+
+        {/* ---------------- Account deletion (signed in only) ---------------- */}
+        {user && (
+          <div className="mt-8 flex justify-center">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={deleting} className="h-11 gap-2 rounded-2xl">
+                  {deleting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                  Delete my account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes your account, search history and favourites. You can't
+                    undo this.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete account
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </div>
     </div>
   );
