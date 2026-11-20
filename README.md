@@ -60,4 +60,4 @@ npm run dev
 
 **After 2-3 minutes, you'll get:**
 ```
-https://naturewellness-staging.vercel.app
+https://naturewellness4712.com

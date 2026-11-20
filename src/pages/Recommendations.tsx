@@ -58,6 +58,7 @@ import {
 } from "@/lib/citations";
 import { generateHealthSummary } from "@/lib/ai-summary";
 import { isFromSearch } from "@/lib/condition-nav";
+import { LEGAL } from "@/lib/legal";
 import {
   keggPathwayUrl,
   openExternal,
@@ -85,7 +86,7 @@ const TABS = [
 ];
 
 /** Public app URL used in shared messages. */
-const SHARE_URL = "https://naturewellness-staging.vercel.app";
+const SHARE_URL = LEGAL.siteUrl;
 
 /** Shared chip styling for the source / evidence-type labels on a reference. */
 const CHIP_CLASS =
