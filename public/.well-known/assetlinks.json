@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.naturewellness.app",
+        "sha256_cert_fingerprints": ["4B:81:B4:C3:60:10:C4:A1:A1:4E:3F:A9:93:B0:53:01:0A:6B:58:AA:23:C7:06:B0:E2:9E:12:F8:72:41:BC:85"]
+      }
+    }]
